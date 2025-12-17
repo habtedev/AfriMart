@@ -1,11 +1,10 @@
-import Image from "next/image";
+
+import { CarouselRemote } from "@/components/shared/carousel/CarouselRemote";
 
 export default function Home() {
   return (
-     <>
-     <h1>test</h1>
-     </>
-     
-  
+    <>
+      <CarouselRemote />
+    </>
   );
 }
