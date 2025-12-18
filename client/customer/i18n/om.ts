@@ -1,4 +1,7 @@
 const om = {
+  languageSwitcher: "Afaan jijjiiri",
+  featuredCategories: "Gosa filatamoo",
+  localFavorites: "Kan naannoo fi kan yeroo ammaa beekaman",
   call: "Bilbila",
   freeShipping: "Dawaa 500 ETB ol ta'e kan bilisa geessuu",
   delivery: "Tajaajila geejjibaa",
@@ -18,5 +21,14 @@ const om = {
     { name: "Meeshaalee Manaa", href: "/category/home" },
     { name: "Hojii harka", href: "/category/handicrafts" },
   ],
-};
+    productCategories: {
+      coffee: "Buna",
+      electronics: "Electronics",
+      handcraft: "Hojii harka",
+      "home-goods": "Meeshaalee Manaa",
+      "best-seller": "Kan gurgurtaa olaanaa",
+      clothing: "Uffata",
+      food: "Nyaata",
+    },
+  };
 export default om;

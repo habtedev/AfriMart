@@ -1,4 +1,7 @@
 const am = {
+  languageSwitcher: "ቋንቋ ቀይር",
+  featuredCategories: "ተለዋዋጭ ምድቦች",
+  localFavorites: "የአካባቢ ተወዳጅ እና ታዋቂ እቃዎች",
   call: "ደውል",
   freeShipping: "ነፃ የመላኪያ አገልግሎት ከ 500 ETB በላይ",
   delivery: "የመላኪያ አገልግሎት",
@@ -18,5 +21,14 @@ const am = {
     { name: "የቤት እቃዎች", href: "/category/home" },
     { name: "እደ-ጥበብ", href: "/category/handicrafts" },
   ],
+  productCategories: {
+    coffee: "ቡና",
+    electronics: "ኤሌክትሮኒክስ",
+    handcraft: "እደ-ጥበብ",
+    "home-goods": "የቤት እቃዎች",
+    "best-seller": "በጣም የሚሸጥ",
+    clothing: "ልብስ",
+    food: "ምግብ",
+  },
 };
 export default am;

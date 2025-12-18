@@ -52,6 +52,16 @@ function SheetContent({
 }: React.ComponentProps<typeof SheetPrimitive.Content> & {
   side?: "top" | "right" | "bottom" | "left"
 }) {
+  // Guarantee a DialogTitle is present for accessibility
+  const hasTitle = React.Children.toArray(children).some(
+    child =>
+      React.isValidElement(child) &&
+      (
+        child.type === SheetPrimitive.Title ||
+        (typeof child.props === "object" && child.props !== null && "className" in child.props &&
+          typeof child.props.className === "string" && child.props.className.includes("sr-only"))
+      )
+  );
   return (
     <SheetPortal>
       <SheetOverlay />
@@ -71,6 +81,11 @@ function SheetContent({
         )}
         {...props}
       >
+        {!hasTitle && (
+          <span style={{ position: 'absolute', width: 1, height: 1, margin: -1, padding: 0, overflow: 'hidden', clip: 'rect(0,0,0,0)', border: 0 }}>
+            Menu
+          </span>
+        )}
         {children}
         <SheetPrimitive.Close className="ring-offset-background focus:ring-ring data-[state=open]:bg-secondary absolute top-4 right-4 rounded-xs opacity-70 transition-opacity hover:opacity-100 focus:ring-2 focus:ring-offset-2 focus:outline-hidden disabled:pointer-events-none">
           <XIcon className="size-4" />

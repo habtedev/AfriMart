@@ -1,4 +1,7 @@
 const en = {
+  languageSwitcher: "Change Language",
+  featuredCategories: "Featured Categories",
+  localFavorites: "Local favorites and trending items",
   call: "Call",
   freeShipping: "Free delivery on orders over 500 ETB",
   delivery: "Delivery Services",
@@ -18,5 +21,14 @@ const en = {
     { name: "Home Goods", href: "/category/home" },
     { name: "Handicrafts", href: "/category/handicrafts" },
   ],
+  productCategories: {
+    coffee: "Coffee",
+    electronics: "Electronics",
+    handcraft: "Handicraft",
+    "home-goods": "Home Goods",
+    "best-seller": "Best Seller",
+    clothing: "Clothing",
+    food: "Food",
+  },
 };
 export default en;

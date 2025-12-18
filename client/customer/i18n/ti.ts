@@ -1,4 +1,7 @@
 const ti = {
+  languageSwitcher: "ቋንቋ ቀይር",
+  featuredCategories: "ተለዋዋጭ ምድብታት",
+  localFavorites: "ዝተወዳዳሉ እቶም ኣካባቢ እቶም ዝተለዋዋጡ ኣቕሓዎት",
   call: "ደውል",
   freeShipping: "ካብ 500 ብር ልዕሊ ዝኾነ ትእዛዝ ነፃ ምድላይ",
   delivery: "ኣገልግሎት መላኺ",
@@ -18,5 +21,15 @@ const ti = {
     { name: "ዕቃታት ገዛ", href: "/category/home" },
     { name: "ማህጸን ሥራ", href: "/category/handicrafts" },
   ],
-};
+    productCategories: {
+      coffee: "ቡና",
+      electronics: "ኤሌክትሮኒክስ",
+      handcraft: "ማህጸን ሥራ",
+      "home-goods": "ዕቃታት ገዛ",
+      "best-seller": "ዋጋ ከፍተኛ",
+      clothing: "ክዳው",
+      food: "መግቢ",
+    },
+  };
+
 export default ti;
