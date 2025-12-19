@@ -2,20 +2,37 @@
 
 import Image from "next/image";
 import { Button } from "@/components/ui/button";
+import { useRouter } from "next/navigation";
+import { useCart } from "@/context/CartContext";
 
 export interface HomeProductCardProps {
   image: string;
   title: string;
   badge?: string;
-  onAddToCart?: () => void;
+  category?: string;
 }
 
 export default function HomeProductCard({
   image,
   title,
   badge,
-  onAddToCart,
+  category,
 }: HomeProductCardProps) {
+  const router = useRouter();
+  const { addToCart } = useCart();
+  const handleViewDetails = () => {
+    if (category) {
+      router.push(`/products?category=${encodeURIComponent(category)}`);
+    }
+  };
+  const handleAddToCart = () => {
+    addToCart({
+      id: `${category || title}`,
+      title,
+      image,
+      price: 0, // No price info available here
+    });
+  };
   return (
     <div className="group relative rounded-xl border bg-background shadow-sm hover:shadow-lg transition-all overflow-hidden">
       {/* Image */}
@@ -40,12 +57,10 @@ export default function HomeProductCard({
           {title}
         </h3>
 
-        {/* No price or rating shown */}
-
         <Button
           size="sm"
           className="w-full mt-2"
-          onClick={onAddToCart}
+          onClick={handleViewDetails}
         >
           View details
         </Button>

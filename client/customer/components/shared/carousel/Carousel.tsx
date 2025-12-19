@@ -38,6 +38,7 @@ interface CarouselProps {
   showProductInfo?: boolean;
   withQuickAdd?: boolean;
   withFullscreen?: boolean;
+  overlay?: React.ReactNode;
 }
 
 export default function FullWidthEcommerceCarousel({
@@ -48,6 +49,7 @@ export default function FullWidthEcommerceCarousel({
   showProductInfo = true,
   withQuickAdd = true,
   withFullscreen = false,
+  overlay,
 }: CarouselProps) {
   const [current, setCurrent] = useState(0);
   const [isPlaying, setIsPlaying] = useState(autoPlay);
@@ -92,10 +94,21 @@ export default function FullWidthEcommerceCarousel({
     <section className="relative w-screen left-1/2 right-1/2 -ml-[50vw] -mr-[50vw]">
       {/* HERO */}
       <div
-        className="relative min-h-[75vh] w-full overflow-hidden bg-muted"
+        className="relative min-h-[55vh] sm:min-h-[65vh] md:min-h-[75vh] w-full overflow-hidden bg-muted"
         onMouseEnter={() => setHovered(true)}
         onMouseLeave={() => setHovered(false)}
       >
+        {/* Overlay in the center */}
+        {overlay && (
+          <div className="absolute inset-x-0 bottom-0 flex items-end justify-center z-[60] pointer-events-none pb-8 overflow-visible">
+            <div
+              className="pointer-events-auto w-screen max-w-none rounded-none p-0 md:p-0 overflow-visible"
+              style={{ minHeight: '220px', height: 'clamp(180px, 22vh, 320px)', gap: '2.5rem', background: 'none', boxShadow: 'none', zIndex: 70 }}
+            >
+              {overlay}
+            </div>
+          </div>
+        )}
         {/* Progress */}
         {isPlaying && (
           <div className="absolute top-0 inset-x-0 z-40">

@@ -5,7 +5,7 @@ import HomeProductGrid from "./product-category-grid";
 import { useCategoryProducts } from "@/lib/useCategoryProducts";
 import { translations } from "@/i18n";
 
-const CATEGORY_ORDER = ["coffee", "electronics", "handcraft", "home-goods"];
+const CATEGORY_ORDER = [  'clothing', "electronics", "handcraft", "home-goods"];
 
 export default function HomeCategorySection() {
   const { language } = useLanguage();
@@ -54,6 +54,7 @@ export default function HomeCategorySection() {
               badge:
                 t.productCategories?.[CATEGORY_ORDER[idx] as keyof typeof t.productCategories] ||
                 p.category,
+              category: p.category,
             }
           : null
       )}

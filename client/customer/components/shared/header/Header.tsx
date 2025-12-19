@@ -25,13 +25,17 @@ import {
   CreditCard,
   Check,
 } from "lucide-react";
+
 import { translations, Language } from "@/i18n";
 import { useLanguage } from "@/context/LanguageContext";
+import { useCart } from "@/context/CartContext";
+
 
 export default function Header() {
   const [searchQuery, setSearchQuery] = useState("");
   const { language: lang, setLanguage: setLang } = useLanguage();
-  const cartItems = 3;
+  const { getItemCount } = useCart();
+  const cartItems = getItemCount();
 
   const languages = [
     { code: "en", name: "English", nativeName: "English", flag: "🇬🇧" },
