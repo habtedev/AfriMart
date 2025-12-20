@@ -295,13 +295,14 @@ export default function ProductCardDetail({
             <button
               disabled={!inStock}
               onClick={() => {
-                addToCart({
-                  id: sku || title,
-                  title,
-                  image,
-                  price: typeof price === "number" ? price : 0,
-                  quantity,
-                });
+                  addToCart({
+                    id: sku || title,
+                    title,
+                    image,
+                    price: typeof price === "number" ? price : 0,
+                    quantity,
+                    stock,
+                  });
                 setShowToast(true);
                 setTimeout(() => setShowToast(false), 1800);
               }}

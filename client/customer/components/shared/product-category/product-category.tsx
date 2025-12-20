@@ -31,6 +31,7 @@ export default function HomeProductCard({
       title,
       image,
       price: 0, // No price info available here
+      stock: 1, // Default to 1 if stock is unknown; update if you have real stock info
     });
   };
   return (

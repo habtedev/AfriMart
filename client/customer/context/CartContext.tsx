@@ -7,11 +7,13 @@ export interface CartItem {
   image: string;
   price: number;
   quantity: number;
+  stock: number;
 }
 
 interface CartContextType {
   items: CartItem[];
-  addToCart: (item: Omit<CartItem, "quantity"> & { quantity?: number }) => void;
+  addToCart: (item: Omit<CartItem, "quantity" | "stock"> & { quantity?: number; stock: number }) => void;
+  updateCartItemQuantity: (id: string, quantity: number) => void;
   removeFromCart: (id: string) => void;
   clearCart: () => void;
   getItemCount: () => number;
@@ -27,6 +29,13 @@ export const useCart = () => {
 
 
 export function CartProvider({ children }: { children: ReactNode }) {
+    const updateCartItemQuantity = (id: string, quantity: number) => {
+      setItems((prev) =>
+        prev.map((item) =>
+          item.id === id ? { ...item, quantity: Math.max(1, quantity) } : item
+        )
+      );
+    };
   const [items, setItems] = useState<CartItem[]>([]);
   const [isLoaded, setIsLoaded] = useState(false);
 
@@ -42,16 +51,18 @@ export function CartProvider({ children }: { children: ReactNode }) {
     }
   }, [items, isLoaded]);
 
-  const addToCart = (item: Omit<CartItem, "quantity"> & { quantity?: number }) => {
+  const addToCart = (item: Omit<CartItem, "quantity" | "stock"> & { quantity?: number; stock: number }) => {
     setItems((prev) => {
       const existing = prev.find((i) => i.id === item.id);
       const addQty = item.quantity && item.quantity > 0 ? item.quantity : 1;
       if (existing) {
+        // Do not allow adding more than stock
+        const newQty = Math.min(existing.quantity + addQty, item.stock);
         return prev.map((i) =>
-          i.id === item.id ? { ...i, quantity: i.quantity + addQty } : i
+          i.id === item.id ? { ...i, quantity: newQty, stock: item.stock } : i
         );
       }
-      return [...prev, { ...item, quantity: addQty }];
+      return [...prev, { ...item, quantity: Math.min(addQty, item.stock), stock: item.stock }];
     });
   };
 
@@ -65,7 +76,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
 
   if (!isLoaded) return null;
   return (
-    <CartContext.Provider value={{ items, addToCart, removeFromCart, clearCart, getItemCount }}>
+    <CartContext.Provider value={{ items, addToCart, removeFromCart, clearCart, getItemCount, updateCartItemQuantity }}>
       {children}
     </CartContext.Provider>
   );

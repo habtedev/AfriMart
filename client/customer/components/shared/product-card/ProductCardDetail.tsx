@@ -129,6 +129,7 @@ export default function ProductCardDetail({
                   image,
                   price,
                   quantity,
+                  stock,
                 });
                 setShowToast(true);
                 setTimeout(() => setShowToast(false), 1500);
@@ -201,6 +202,8 @@ export default function ProductCardDetail({
                     title,
                     image,
                     price,
+                    quantity,
+                    stock,
                   });
                   setShowToast(true);
                   setTimeout(() => setShowToast(false), 1800);

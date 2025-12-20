@@ -97,6 +97,7 @@ export default function ProductCategoryCardGrid({
                       image: cat.image,
                       price: 0,
                       quantity: 1,
+                      stock: 1, // Default to 1 if stock is unknown; update if you have real stock info
                     });
                   }}
                 >

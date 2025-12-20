@@ -16,6 +16,7 @@ interface Product {
   category: string;
   isBestSeller?: boolean;
   isTodayDeal?: boolean;
+  stock: number;
 }
 
 const fetchProducts = async (): Promise<Product[]> => {
@@ -126,6 +127,7 @@ export default function ProductCardByCategory() {
         title: product.title,
         image: product.image,
         price: product.offPrice || product.price || 0,
+        stock: typeof product.stock === 'number' ? product.stock : 1,
       });
     }
   };
