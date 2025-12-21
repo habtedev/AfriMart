@@ -1,4 +1,10 @@
+
 const authRoutes = require("./router/auth.routes");
+const shippingRoutes = require("./router/shipping.routes");
+const paymentRoutes = require("./router/payment.routes");
+
+const arifpayRoutes = require("./router/arifpay.routes");
+const orderRoutes = require("./router/order.routes");
 
 const express = require("express");
 const app = express();
@@ -26,6 +32,7 @@ app.get("/api/test", (req, res) => {
 // Auth API
 app.use("/api/auth", authRoutes);
 
+
 // Carousel API
 app.use("/api/carousel", carouselRoutes);
 // Product-category API
@@ -34,6 +41,19 @@ app.use("/api/products", productRoutes);
 app.use("/api/product-category-card", productCategoryCardRoutes);
 // Product card API
 app.use("/api/product-cards", productCardRoutes);
+
+// Shipping address API
+app.use("/api/shipping", shippingRoutes);
+
+// Payment method API
+app.use("/api/payment", paymentRoutes);
+
+
+// Order API (for testing)
+app.use("/api/order", orderRoutes);
+
+// ArifPay API
+app.use("/api/arifpay", arifpayRoutes);
 
 
 // Global error handler (must be last)

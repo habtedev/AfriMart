@@ -1,12 +1,15 @@
 "use client";
 
+
 import { useCart } from "@/context/CartContext";
 import Image from "next/image";
 import { ShoppingCart, Trash2 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
+import { useRouter } from "next/navigation";
 
 export default function CartPage() {
   const { items, removeFromCart, clearCart, updateCartItemQuantity } = useCart();
+  const router = useRouter();
 
   const total = items.reduce((sum, item) => sum + item.price * item.quantity, 0);
 
@@ -130,7 +133,10 @@ export default function CartPage() {
               Total: ETB {total.toLocaleString()}
             </span>
 
-            <button className="px-8 py-4 rounded-full bg-primary text-primary-foreground font-semibold shadow-lg hover:scale-[1.04] transition">
+            <button
+              className="px-8 py-4 rounded-full bg-primary text-primary-foreground font-semibold shadow-lg hover:scale-[1.04] transition"
+              onClick={() => router.push("/shopping/address")}
+            >
               Proceed to Checkout
             </button>
           </div>
@@ -144,7 +150,10 @@ export default function CartPage() {
               </p>
             </div>
 
-            <button className="px-6 py-3 rounded-full bg-primary text-primary-foreground font-semibold shadow-lg">
+            <button
+              className="px-6 py-3 rounded-full bg-primary text-primary-foreground font-semibold shadow-lg"
+              onClick={() => router.push("/shopping/address")}
+            >
               Checkout
             </button>
           </div>

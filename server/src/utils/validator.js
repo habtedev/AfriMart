@@ -1,4 +1,18 @@
+
 const Joi = require("joi");
+
+// ArifPay payment validation schema
+const arifpayPaymentSchema = Joi.object({
+  phone: Joi.string().pattern(/^2519\d{8}$/).required().messages({
+    'string.pattern.base': 'Phone number must be a valid Ethiopian number starting with 2519',
+  }),
+  orderId: Joi.string().min(3).max(64).required(),
+  description: Joi.string().max(256).optional(),
+});
+
+function validateArifpayPayment(data) {
+  return arifpayPaymentSchema.validate(data, { abortEarly: false });
+}
 
 
 // Carousel image validation schema
@@ -32,4 +46,23 @@ function validateLogin(data) {
   return loginSchema.validate(data);
 }
 
-module.exports = { validateCarousel, validateRegister, validateLogin };
+
+// Telebirr payment validation schema
+const telebirrPaymentSchema = Joi.object({
+  amount: Joi.number().positive().required(),
+  phone: Joi.string()
+    .pattern(/^2519\d{8}$/)
+    .required()
+    .messages({
+      'string.pattern.base': 'Phone number must be a valid Ethiopian number starting with 2519',
+    }),
+  orderId: Joi.string().min(3).max(64).required(),
+  description: Joi.string().max(256).optional(),
+  // Add more fields as needed for Telebirr compliance
+});
+
+function validateTelebirrPayment(data) {
+  return telebirrPaymentSchema.validate(data, { abortEarly: false });
+}
+
+module.exports = { validateCarousel, validateRegister, validateLogin, validateTelebirrPayment, validateArifpayPayment };
