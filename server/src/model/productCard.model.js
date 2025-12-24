@@ -15,8 +15,8 @@ const productCardSchema = new mongoose.Schema({
   category: {
     type: String,
     enum: {
-      values: ['best-seller', 'coffees', 'food', "today's deals"],
-      message: 'Category must be one of: best seller, coffees, food, today\'s deals.'
+      values: ['best-seller', 'coffees', 'shoose', "today's deals"],
+      message: 'Category must be one of: best seller, coffes, food, today\'s deals.'
     },
     required: [true, 'Category is required']
   },

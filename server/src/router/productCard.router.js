@@ -14,7 +14,7 @@ router.get('/best-sellers', productCardController.getBestSellers);
 router.get('/today-deals', productCardController.getTodayDeals);
 router.get('/category/:category', productCardController.getByCategory);
 router.get('/:id', productCardController.getProductCardById);
-router.put('/:id', productCardController.updateProductCard);
+router.put('/:id', upload.single('image'), productCardController.updateProductCard);
 router.delete('/:id', productCardController.deleteProductCard);
 
 module.exports = router;
