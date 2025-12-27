@@ -65,4 +65,31 @@ function validateTelebirrPayment(data) {
   return telebirrPaymentSchema.validate(data, { abortEarly: false });
 }
 
-module.exports = { validateCarousel, validateRegister, validateLogin, validateTelebirrPayment, validateArifpayPayment };
+// Chapa payment validation schema
+const chapaPaymentSchema = Joi.object({
+  amount: Joi.number().positive().required(),
+  currency: Joi.string().length(3).required(),
+  email: Joi.string().email().required(),
+  first_name: Joi.string().min(2).max(50).required(),
+  last_name: Joi.string().min(2).max(50).required(),
+  tx_ref: Joi.string().min(3).max(64).required(),
+  callback_url: Joi.string().uri().required(),
+  return_url: Joi.string().uri().optional(),
+  customization_title: Joi.string().optional(),
+  custom_description: Joi.string().optional(),
+  custom_logo: Joi.string().uri().optional(),
+});
+
+function validateChapaPayment(data) {
+  return chapaPaymentSchema.validate(data, { abortEarly: false });
+}
+
+module.exports = {
+  validateCarousel,
+  validateRegister,
+  validateLogin,
+  validateTelebirrPayment,
+  validateArifpayPayment,
+  validateChapaPayment,
+  chapaPaymentSchema,
+};

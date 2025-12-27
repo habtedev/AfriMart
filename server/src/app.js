@@ -3,12 +3,11 @@ const authRoutes = require("./router/auth.routes");
 const shippingRoutes = require("./router/shipping.routes");
 const paymentRoutes = require("./router/payment.routes");
 
-const arifpayRoutes = require("./router/arifpay.routes");
 const orderRoutes = require("./router/order.routes");
 
 const express = require("express");
 const app = express();
-
+const chapaRoutes = require('./router/chapa.router');
 const carouselRoutes = require("./router/carousel.routes");
 const productRoutes = require("./router/product-categories.routes");
 const productCategoryCardRoutes = require("./router/product-category-card.routes");
@@ -52,11 +51,13 @@ app.use("/api/shipping", shippingRoutes);
 app.use("/api/payment", paymentRoutes);
 
 
+
 // Order API (for testing)
 app.use("/api/order", orderRoutes);
 
-// ArifPay API
-app.use("/api/arifpay", arifpayRoutes);
+// Chapa payment API
+app.use('/api/chapa', chapaRoutes);
+
 
 
 // Global error handler (must be last)

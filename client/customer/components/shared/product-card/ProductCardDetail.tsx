@@ -38,6 +38,12 @@ export default function ProductCardDetail({
   const { addToCart } = useCart();
   const [quantity, setQuantity] = useState(1);
   const [showToast, setShowToast] = useReactState(false);
+  // Accept _id as prop for correct cart logic
+  // @ts-ignore
+  const _id = (typeof window !== 'undefined' && window.__PRODUCT_ID__) || undefined;
+  // Accept _id as prop for correct cart logic
+  // @ts-ignore
+  const _id = (typeof window !== 'undefined' && window.__PRODUCT_ID__) || undefined;
   const inStock = stock > 0;
   const discount = originalPrice
     ? Math.round(((originalPrice - price) / originalPrice) * 100)
@@ -124,7 +130,8 @@ export default function ProductCardDetail({
               disabled={!inStock}
               onClick={() => {
                 addToCart({
-                  id: sku || title,
+                  id: _id || sku || title,
+                  _id: _id || sku || title,
                   title,
                   image,
                   price,

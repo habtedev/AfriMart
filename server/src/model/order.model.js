@@ -25,9 +25,8 @@ const orderSchema = new mongoose.Schema({
   updatedAt: { type: Date, default: Date.now },
 });
 
-orderSchema.pre('save', function(next) {
+orderSchema.pre('save', function() {
   this.updatedAt = Date.now();
-  next();
 });
 
 module.exports = mongoose.model('Order', orderSchema);

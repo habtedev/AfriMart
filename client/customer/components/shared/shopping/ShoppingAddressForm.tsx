@@ -1,22 +1,23 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
+import { useAuth } from "@/context/AuthContext";
 import { getUserIdFromToken } from "../../../utils/auth";
 import { useCart } from "@/context/CartContext";
-import { Check, CreditCard, Smartphone, Wallet, MapPin, Package } from "lucide-react";
+import { Check, CreditCard, Smartphone, Wallet, MapPin, Package, Shield } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
 // Payment methods data
-const paymentOptions = [
+const PAYMENT_OPTIONS = [
   { 
-    id: "telebirr", 
-    label: "Telebirr", 
+    id: "chapa", 
+    label: "Chapa", 
     icon: Smartphone,
     color: "bg-gradient-to-r from-blue-600 to-blue-800",
-    description: "Pay via Telebirr mobile wallet",
-    inputLabel: "Telebirr Phone Number",
-    pattern: "^[0-9]{10}$",
-    placeholder: "09xxxxxxxx"
+    description: "Pay securely via Chapa gateway",
+    inputLabel: "Email Address",
+    pattern: "^.+@.+\..+$",
+    placeholder: "your@email.com"
   },
   { 
     id: "mpesa", 
@@ -50,29 +51,57 @@ const paymentOptions = [
     placeholder: "",
     disabled: true
   },
-];
+] as const;
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL;
 
+interface AddressForm {
+  fullName: string;
+  street: string;
+  city: string;
+  state: string;
+  zipCode: string;
+  country: string;
+  phone: string;
+}
+
+interface ValidationErrors {
+  [key: string]: string;
+}
+
 export default function ModernCheckout2025() {
+    // Clear order_processed when starting a new checkout/payment
+    useEffect(() => {
+      if (typeof window !== 'undefined') {
+        localStorage.removeItem('order_processed');
+      }
+    }, []);
+  const { user } = useAuth();
   const { items: cartItems, clearCart } = useCart();
+  
   // Calculate totals from real cart
-  const subtotal = cartItems.reduce((sum, item) => sum + (item.price * item.quantity), 0);
-  const shipping = cartItems.length > 0 ? 9.99 : 0;
-  const tax = subtotal * 0.08;
-  const total = subtotal + shipping + tax;
+  const calculateTotals = useCallback(() => {
+    const subtotal = cartItems.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+    const shipping = cartItems.length > 0 ? 9.99 : 0;
+    const tax = subtotal * 0.08;
+    const total = subtotal + shipping + tax;
+    
+    return { subtotal, shipping, tax, total };
+  }, [cartItems]);
+  
+  const { subtotal, shipping, tax, total } = calculateTotals();
   
   // Form states
-  const [step, setStep] = useState(1); // 1: Address, 2: Payment, 3: Review
-  const [paymentMethod, setPaymentMethod] = useState("");
-  const [accountNumber, setAccountNumber] = useState("");
+  const [step, setStep] = useState<1 | 2 | 3>(1); // 1: Address, 2: Payment, 3: Review
+  const [paymentMethod, setPaymentMethod] = useState<string>("");
+  const [accountNumber, setAccountNumber] = useState(user?.email || "");
   const [loading, setLoading] = useState(false);
   const [isComplete, setIsComplete] = useState(false);
-  const [errors, setErrors] = useState<Record<string, string>>({});
-  const [orderId, setOrderId] = useState("");
+  const [errors, setErrors] = useState<ValidationErrors>({});
+  const [orderId, setOrderId] = useState<string>("");
 
   // Address form states
-  const [address, setAddress] = useState({
+  const [address, setAddress] = useState<AddressForm>({
     fullName: "",
     street: "",
     city: "",
@@ -82,62 +111,124 @@ export default function ModernCheckout2025() {
     phone: ""
   });
 
-  const handleAddressChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setAddress({ ...address, [e.target.name]: e.target.value });
-    if (errors[e.target.name]) {
-      setErrors({ ...errors, [e.target.name]: "" });
-    }
-  };
+  // Derived state
+  const selectedPaymentMethod = PAYMENT_OPTIONS.find(m => m.id === paymentMethod);
 
-  const validateAddress = () => {
-    const newErrors: Record<string, string> = {};
+  const handleAddressChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
+    setAddress(prev => ({ ...prev, [name]: value }));
+    
+    if (errors[name]) {
+      setErrors(prev => {
+        const newErrors = { ...prev };
+        delete newErrors[name];
+        return newErrors;
+      });
+    }
+  }, [errors]);
+
+  const validateAddress = useCallback((): boolean => {
+    const newErrors: ValidationErrors = {};
+    
     if (!address.fullName.trim()) newErrors.fullName = "Full name is required";
     if (!address.street.trim()) newErrors.street = "Street address is required";
     if (!address.city.trim()) newErrors.city = "City is required";
-    if (!address.phone.trim()) newErrors.phone = "Phone number is required";
-    if (!/^[0-9]{10}$/.test(address.phone)) newErrors.phone = "Valid 10-digit phone number required";
+    
+    if (!address.phone.trim()) {
+      newErrors.phone = "Phone number is required";
+    } else if (!/^[0-9]{10}$/.test(address.phone)) {
+      newErrors.phone = "Valid 10-digit phone number required";
+    }
+    
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
-  };
+  }, [address]);
 
-  const validatePayment = () => {
+  const validatePayment = useCallback((): boolean => {
+    const newErrors: ValidationErrors = { ...errors };
+    
     if (!paymentMethod) {
-      setErrors({ ...errors, payment: "Please select a payment method" });
+      newErrors.payment = "Please select a payment method";
+      setErrors(newErrors);
       return false;
     }
-    
-    if (paymentMethod === "telebirr" && !accountNumber.trim()) {
-      setErrors({ ...errors, accountNumber: "Telebirr phone number is required" });
-      return false;
-    }
-    
-    if (paymentMethod === "telebirr" && !/^[0-9]{10}$/.test(accountNumber)) {
-      setErrors({ ...errors, accountNumber: "Valid 10-digit phone number required" });
-      return false;
-    }
-    
-    return true;
-  };
 
-  const handleNextStep = () => {
+    // Chapa email validation
+    if (paymentMethod === "chapa") {
+      if (!accountNumber.trim()) {
+        newErrors.accountNumber = "Email address is required for Chapa payment";
+        setErrors(newErrors);
+        return false;
+      }
+      
+      const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailPattern.test(accountNumber.trim())) {
+        newErrors.accountNumber = "Please enter a valid email address";
+        setErrors(newErrors);
+        return false;
+      }
+    }
+
+    // Remove payment error if validation passes
+    if (newErrors.payment) {
+      delete newErrors.payment;
+    }
+    
+    if (newErrors.accountNumber) {
+      delete newErrors.accountNumber;
+    }
+    
+    setErrors(newErrors);
+    return true;
+  }, [paymentMethod, accountNumber, errors]);
+
+  const handleNextStep = useCallback(() => {
     if (step === 1 && validateAddress()) {
       setStep(2);
     } else if (step === 2 && validatePayment()) {
       setStep(3);
     }
-  };
+  }, [step, validateAddress, validatePayment]);
 
-  const handlePrevStep = () => {
+  const handlePrevStep = useCallback(() => {
     if (step > 1) {
-      setStep(step - 1);
+      setStep(step === 2 ? 1 : 2);
     }
-  };
+  }, [step]);
 
-  const handlePaymentMethodSelect = (methodId: string) => {
+  const handlePaymentMethodSelect = useCallback((methodId: string) => {
     setPaymentMethod(methodId);
-    setAccountNumber("");
-    setErrors({ ...errors, accountNumber: "", payment: "" });
-  };
+    
+    // If Chapa, default to user email; else clear
+    if (methodId === "chapa") {
+      setAccountNumber(user?.email || "");
+    } else {
+      setAccountNumber("");
+    }
+    
+    // Clear related errors
+    setErrors(prev => {
+      const newErrors = { ...prev };
+      delete newErrors.payment;
+      delete newErrors.accountNumber;
+      return newErrors;
+    });
+  }, [user?.email]);
+
+  const handleAccountNumberChange = useCallback((value: string) => {
+    if (paymentMethod !== "chapa") {
+      const cleanedValue = value.replace(/\D/g, '').slice(0, 10);
+      setAccountNumber(cleanedValue);
+    }
+    
+    if (errors.accountNumber) {
+      setErrors(prev => {
+        const newErrors = { ...prev };
+        delete newErrors.accountNumber;
+        return newErrors;
+      });
+    }
+  }, [paymentMethod, errors.accountNumber]);
 
   const handlePlaceOrder = async () => {
     if (paymentMethod === "cash") {
@@ -145,88 +236,34 @@ export default function ModernCheckout2025() {
       return;
     }
 
+    // Prepare valid cart items for order creation
+    const validCartItems = cartItems.map((item: any) => ({
+      productId: item._id || item.id,
+      quantity: item.quantity,
+      price: item.price
+    }));
+
+    // Get userId from token
+    const userToken = typeof window !== 'undefined' ? localStorage.getItem("token") : null;
+    const userId = userToken ? getUserIdFromToken(userToken) : null;
+
     setLoading(true);
+    
     try {
-      const userToken = localStorage.getItem("token");
-      const userId = userToken ? getUserIdFromToken(userToken) : null;
-      
       if (!userId) {
-        setErrors({ ...errors, general: "User not authenticated. Please log in again." });
+        setErrors({ general: "User not authenticated. Please log in again." });
         setLoading(false);
         return;
       }
 
-      // Generate order ID
-      const generatedOrderId = `ORDER-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-      setOrderId(generatedOrderId);
-
-      // 1. Create order in backend
-      const orderRes = await fetch(`${API_BASE_URL}/order/create`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          ...(userToken ? { "Authorization": `Bearer ${userToken}` } : {})
-        },
-        credentials: "include",
-        body: JSON.stringify({
-          orderId: generatedOrderId,
-          userId,
-          items: cartItems.map(item => ({
-            productId: item.id,
-            quantity: item.quantity,
-            price: item.price
-          })),
-          shippingAddress: address,
-          totalAmount: total,
-          paymentMethod: paymentMethod,
-          paymentStatus: "pending"
-        }),
-      });
-
-      if (!orderRes.ok) {
-        throw new Error("Failed to create order");
-      }
-
-      const order = await orderRes.json();
-
-      // 2. Initiate ArifPay payment (for Telebirr)
-      if (paymentMethod === "telebirr") {
-        const payRes = await fetch(`${API_BASE_URL}/arifpay/initiate`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            ...(userToken ? { "Authorization": `Bearer ${userToken}` } : {})
-          },
-          credentials: "include",
-          body: JSON.stringify({
-            orderId: order.orderId || generatedOrderId,
-            phone: "2519" + accountNumber.slice(-8),
-            description: `Order for ${address.fullName}, ${address.street}, ${address.city}`,
-            amount: total
-          }),
-        });
-
-        if (!payRes.ok) {
-          throw new Error("Payment initiation failed");
-        }
-
-        const payData = await payRes.json();
-        if (payData.paymentUrl) {
-          // Clear cart before redirecting
-          clearCart();
-          window.location.href = payData.paymentUrl;
-        } else {
-          throw new Error("No payment URL received");
-        }
+      if (paymentMethod === "chapa") {
+        await initiateChapaPayment();
       } else {
-        // For other payment methods, mark as complete
-        setIsComplete(true);
-        clearCart();
+        await createOrder();
       }
     } catch (error) {
       console.error("Payment failed:", error);
       setErrors({ 
-        ...errors, 
         general: "Payment failed. Please try again or contact support." 
       });
     } finally {
@@ -234,7 +271,311 @@ export default function ModernCheckout2025() {
     }
   };
 
-  const selectedPaymentMethod = paymentOptions.find(m => m.id === paymentMethod);
+  const initiateChapaPayment = async () => {
+    const userToken = typeof window !== 'undefined' ? localStorage.getItem("token") : null;
+    const txRef = `TX-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    
+    const safeDescription = `Order for ${address.fullName} - ${address.street} - ${address.city}`
+      .replace(/[^a-zA-Z0-9\-_ .]/g, " ");
+    
+    const chapaPayload = {
+      amount: total,
+      currency: "ETB",
+      email: accountNumber,
+      first_name: address.fullName.split(" ")[0] || address.fullName,
+      last_name: address.fullName.split(" ")[1] || "Customer",
+      tx_ref: txRef,
+      callback_url: `${API_BASE_URL}/chapa/webhook`,
+      return_url: window.location.origin + "/order-success",
+      customization_title: "Order Payment",
+      custom_description: safeDescription
+    };
+
+    const response = await fetch(`${API_BASE_URL}/chapa/pay`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        ...(userToken ? { "Authorization": `Bearer ${userToken}` } : {})
+      },
+      credentials: "include",
+      body: JSON.stringify(chapaPayload),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error("Chapa pay error response:", errorText);
+      throw new Error("Payment initiation failed");
+    }
+
+    const data = await response.json();
+    
+    if (data.data?.checkout_url) {
+      window.location.href = data.data.checkout_url;
+    } else {
+      throw new Error("No Chapa checkout URL received");
+    }
+  };
+
+  const createOrder = async () => {
+    const userToken = typeof window !== 'undefined' ? localStorage.getItem("token") : null;
+    
+    const generatedOrderId = `ORDER-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    
+    const validCartItems = cartItems.map((item: any) => ({
+      productId: item.id || item._id,
+      quantity: item.quantity,
+      price: item.price
+    }));
+
+    const payload = {
+      orderId: generatedOrderId,
+      userId: getUserIdFromToken(userToken || ''),
+      items: validCartItems,
+      shippingAddress: address,
+      totalAmount: total,
+      paymentMethod: paymentMethod,
+      paymentStatus: "pending"
+    };
+
+    const response = await fetch(`${API_BASE_URL}/order/create`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        ...(userToken ? { "Authorization": `Bearer ${userToken}` } : {})
+      },
+      credentials: "include",
+      body: JSON.stringify(payload),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error("Order creation error:", errorText);
+      throw new Error("Failed to create order");
+    }
+
+    setOrderId(generatedOrderId);
+    setIsComplete(true);
+    clearCart();
+    
+    // Redirect to orders page after successful non-Chapa payment
+    if (typeof window !== 'undefined') {
+      window.location.href = '/orders';
+    }
+  };
+
+  // Clear general error when step changes
+  useEffect(() => {
+    if (errors.general) {
+      setErrors(prev => {
+        const newErrors = { ...prev };
+        delete newErrors.general;
+        return newErrors;
+      });
+    }
+  }, [step, errors.general]);
+
+  // Render step content
+  const renderStepContent = () => {
+    switch (step) {
+      case 1:
+        return (
+          <motion.div
+            initial={{ opacity: 0, x: -20 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: 20 }}
+            className="space-y-4 md:space-y-6"
+          >
+            <h2 className="text-xl md:text-2xl font-bold flex items-center gap-2 md:gap-3">
+              <MapPin className="text-blue-600 w-5 h-5 md:w-6 md:h-6" />
+              Shipping Information
+            </h2>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4">
+              {[
+                { key: "fullName", label: "Full Name", type: "text" },
+                { key: "phone", label: "Phone Number", type: "tel" },
+                { key: "street", label: "Street Address", type: "text" },
+                { key: "city", label: "City", type: "text" },
+                { key: "state", label: "State/Region", type: "text" },
+                { key: "zipCode", label: "ZIP Code", type: "text" }
+              ].map(({ key, label, type }) => (
+                <div key={key} className="space-y-1 md:space-y-2">
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                    {label}
+                  </label>
+                  <input
+                    type={type}
+                    name={key}
+                    value={address[key as keyof AddressForm]}
+                    onChange={handleAddressChange}
+                    placeholder={`Enter ${label.toLowerCase()}`}
+                    className={`
+                      w-full px-3 md:px-4 py-2 md:py-3 rounded-lg md:rounded-xl border
+                      focus:outline-none focus:ring-2 focus:ring-blue-500
+                      transition-all duration-200 text-sm md:text-base
+                      ${errors[key] 
+                        ? 'border-red-500 dark:border-red-500' 
+                        : 'border-gray-200 dark:border-zinc-700 hover:border-gray-300 dark:hover:border-zinc-600'}
+                      bg-white dark:bg-zinc-800
+                    `}
+                  />
+                  {errors[key] && (
+                    <p className="text-red-500 text-xs md:text-sm">{errors[key]}</p>
+                  )}
+                </div>
+              ))}
+            </div>
+            
+            <div className="space-y-1 md:space-y-2">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                Country
+              </label>
+              <div className="px-3 md:px-4 py-2 md:py-3 rounded-lg md:rounded-xl border border-gray-200 dark:border-zinc-700 bg-gray-50 dark:bg-zinc-800 text-gray-900 dark:text-gray-100 text-sm md:text-base">
+                Ethiopia
+              </div>
+            </div>
+          </motion.div>
+        );
+
+      case 2:
+        return (
+          <motion.div
+            initial={{ opacity: 0, x: -20 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: 20 }}
+            className="space-y-4 md:space-y-6"
+          >
+            <h2 className="text-xl md:text-2xl font-bold flex items-center gap-2 md:gap-3">
+              <CreditCard className="text-blue-600 w-5 h-5 md:w-6 md:h-6" />
+              Select Payment Method
+            </h2>
+            
+            {errors.payment && (
+              <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-3 md:p-4">
+                <p className="text-red-600 dark:text-red-400 text-sm md:text-base">{errors.payment}</p>
+              </div>
+            )}
+            
+            <div className="space-y-4">
+              {PAYMENT_OPTIONS.map((option) => {
+                const Icon = option.icon;
+                const isSelected = paymentMethod === option.id;
+                const isDisabled = option.disabled;
+                
+                return (
+                  <motion.button
+                    key={option.id}
+                    type="button"
+                    onClick={() => !isDisabled && handlePaymentMethodSelect(option.id)}
+                    whileHover={isDisabled ? {} : { scale: 1.02 }}
+                    whileTap={isDisabled ? {} : { scale: 0.98 }}
+                    className={`
+                      p-4 md:p-6 rounded-xl md:rounded-2xl border text-left transition-all duration-300
+                      ${isDisabled ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'}
+                      ${isSelected && !isDisabled 
+                        ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20 ring-2 ring-blue-200 dark:ring-blue-900' 
+                        : 'border-gray-200 dark:border-zinc-700 hover:border-gray-300 dark:hover:border-zinc-600 hover:bg-gray-50 dark:hover:bg-zinc-800'}
+                    `}
+                    disabled={isDisabled}
+                  >
+                    <div className="flex items-start justify-between mb-3 md:mb-4">
+                      <div className={`p-2 md:p-3 rounded-lg md:rounded-xl ${option.color} text-white`}>
+                        <Icon size={20} className="w-4 h-4 md:w-6 md:h-6" />
+                      </div>
+                      {isSelected && !isDisabled && (
+                        <div className="w-5 h-5 md:w-6 md:h-6 rounded-full bg-blue-500 flex items-center justify-center">
+                          <Check size={12} className="text-white w-3 h-3 md:w-4 md:h-4" />
+                        </div>
+                      )}
+                    </div>
+                    <h3 className="font-bold text-base md:text-lg mb-1 md:mb-2 text-gray-900 dark:text-gray-100">
+                      {option.label}
+                    </h3>
+                    <p className="text-gray-600 dark:text-gray-400 text-xs md:text-sm">
+                      {option.description}
+                    </p>
+                  </motion.button>
+                );
+              })}
+              
+              {selectedPaymentMethod?.inputLabel && (
+                <motion.div
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: 'auto' }}
+                  className="space-y-1 md:space-y-2"
+                >
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                    {selectedPaymentMethod.inputLabel}
+                  </label>
+                  <input
+                    type={paymentMethod === "chapa" ? "email" : "tel"}
+                    value={accountNumber}
+                    onChange={(e) => handleAccountNumberChange(e.target.value)}
+                    placeholder={selectedPaymentMethod.placeholder}
+                    readOnly={paymentMethod === "chapa"}
+                    className={`
+                      w-full px-3 md:px-4 py-2 md:py-3 rounded-lg md:rounded-xl border
+                      focus:outline-none focus:ring-2 focus:ring-blue-500
+                      transition-all duration-200 text-sm md:text-base
+                      ${errors.accountNumber 
+                        ? 'border-red-500 dark:border-red-500' 
+                        : 'border-gray-200 dark:border-zinc-700 hover:border-gray-300 dark:hover:border-zinc-600'}
+                      bg-white dark:bg-zinc-800
+                    `}
+                  />
+                  {errors.accountNumber && (
+                    <p className="text-red-500 text-xs md:text-sm">{errors.accountNumber}</p>
+                  )}
+                </motion.div>
+              )}
+            </div>
+          </motion.div>
+        );
+
+      case 3:
+        return (
+          <motion.div
+            initial={{ opacity: 0, x: -20 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: 20 }}
+            className="space-y-6"
+          >
+            <h2 className="text-xl md:text-2xl font-bold flex items-center gap-3">
+              <Check className="text-green-600 w-6 h-6" />
+              Review Your Order
+            </h2>
+            
+            <div className="bg-gray-50 dark:bg-zinc-800 rounded-xl p-4 md:p-6">
+              <h3 className="font-bold text-lg mb-4">Order Summary</h3>
+              
+              <div className="space-y-3">
+                {cartItems.map((item, index) => (
+                  <div key={index} className="flex justify-between items-center py-2 border-b border-gray-200 dark:border-zinc-700">
+                    <div>
+                      <p className="font-medium">{item.name}</p>
+                      <p className="text-sm text-gray-600 dark:text-gray-400">
+                        Qty: {item.quantity} × Br{item.price.toFixed(2)}
+                      </p>
+                    </div>
+                    <p className="font-semibold">Br{(item.price * item.quantity).toFixed(2)}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+            
+            <div className="bg-gray-50 dark:bg-zinc-800 rounded-xl p-4 md:p-6">
+              <h3 className="font-bold text-lg mb-4">Shipping Details</h3>
+              <div className="space-y-2">
+                <p><strong>Name:</strong> {address.fullName}</p>
+                <p><strong>Address:</strong> {address.street}, {address.city}, {address.state}</p>
+                <p><strong>Phone:</strong> {address.phone}</p>
+                <p><strong>Country:</strong> {address.country}</p>
+              </div>
+            </div>
+          </motion.div>
+        );
+    }
+  };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-zinc-900 dark:to-zinc-800 p-4 md:p-8">
@@ -311,281 +652,11 @@ export default function ModernCheckout2025() {
             {/* Main Content Card */}
             <div className="bg-white dark:bg-zinc-900 rounded-2xl shadow-lg p-4 md:p-6 border dark:border-zinc-700">
               <AnimatePresence mode="wait">
-                {/* Step 1: Address Form */}
-                {step === 1 && (
-                  <motion.div
-                    initial={{ opacity: 0, x: -20 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    exit={{ opacity: 0, x: 20 }}
-                    className="space-y-4 md:space-y-6"
-                  >
-                    <h2 className="text-xl md:text-2xl font-bold flex items-center gap-2 md:gap-3">
-                      <MapPin className="text-blue-600 w-5 h-5 md:w-6 md:h-6" />
-                      Shipping Information
-                    </h2>
-                    
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4">
-                      {Object.entries({
-                        fullName: "Full Name",
-                        phone: "Phone Number",
-                        street: "Street Address",
-                        city: "City",
-                        state: "State/Region",
-                        zipCode: "ZIP Code"
-                      }).map(([key, label]) => (
-                        <div key={key} className="space-y-1 md:space-y-2">
-                          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                            {label}
-                          </label>
-                          <input
-                            type={key === "phone" ? "tel" : "text"}
-                            name={key}
-                            value={address[key as keyof typeof address]}
-                            onChange={handleAddressChange}
-                            placeholder={`Enter ${label.toLowerCase()}`}
-                            className={`
-                              w-full px-3 md:px-4 py-2 md:py-3 rounded-lg md:rounded-xl border
-                              focus:outline-none focus:ring-2 focus:ring-blue-500
-                              transition-all duration-200 text-sm md:text-base
-                              ${errors[key] 
-                                ? 'border-red-500 dark:border-red-500' 
-                                : 'border-gray-200 dark:border-zinc-700 hover:border-gray-300 dark:hover:border-zinc-600'}
-                              bg-white dark:bg-zinc-800
-                            `}
-                          />
-                          {errors[key] && (
-                            <p className="text-red-500 text-xs md:text-sm">{errors[key]}</p>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                    
-                    <div className="space-y-1 md:space-y-2">
-                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                        Country
-                      </label>
-                      <div className="px-3 md:px-4 py-2 md:py-3 rounded-lg md:rounded-xl border border-gray-200 dark:border-zinc-700 bg-gray-50 dark:bg-zinc-800 text-gray-900 dark:text-gray-100 text-sm md:text-base">
-                        Ethiopia
-                      </div>
-                    </div>
-                  </motion.div>
-                )}
-
-                {/* Step 2: Payment Methods */}
-                {step === 2 && (
-                  <motion.div
-                    initial={{ opacity: 0, x: -20 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    exit={{ opacity: 0, x: 20 }}
-                    className="space-y-4 md:space-y-6"
-                  >
-                    <h2 className="text-xl md:text-2xl font-bold flex items-center gap-2 md:gap-3">
-                      <CreditCard className="text-blue-600 w-5 h-5 md:w-6 md:h-6" />
-                      Select Payment Method
-                    </h2>
-                    
-                    {errors.payment && (
-                      <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-3 md:p-4">
-                        <p className="text-red-600 dark:text-red-400 text-sm md:text-base">{errors.payment}</p>
-                      </div>
-                    )}
-                    
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 md:gap-4">
-                      {paymentOptions.map((option) => {
-                        const Icon = option.icon;
-                        const isSelected = paymentMethod === option.id;
-                        const isDisabled = option.disabled;
-                        return (
-                          <motion.button
-                            key={option.id}
-                            type="button"
-                            onClick={() => !isDisabled && handlePaymentMethodSelect(option.id)}
-                            whileHover={isDisabled ? {} : { scale: 1.02 }}
-                            whileTap={isDisabled ? {} : { scale: 0.98 }}
-                            className={`
-                              p-4 md:p-6 rounded-xl md:rounded-2xl border text-left transition-all duration-300
-                              ${isDisabled ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'}
-                              ${isSelected && !isDisabled 
-                                ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20 ring-2 ring-blue-200 dark:ring-blue-900' 
-                                : 'border-gray-200 dark:border-zinc-700 hover:border-gray-300 dark:hover:border-zinc-600 hover:bg-gray-50 dark:hover:bg-zinc-800'}
-                            `}
-                            disabled={isDisabled}
-                          >
-                            <div className="flex items-start justify-between mb-3 md:mb-4">
-                              <div className={`p-2 md:p-3 rounded-lg md:rounded-xl ${option.color} text-white`}>
-                                <Icon size={20} className="w-4 h-4 md:w-6 md:h-6" />
-                              </div>
-                              {isSelected && !isDisabled && (
-                                <div className="w-5 h-5 md:w-6 md:h-6 rounded-full bg-blue-500 flex items-center justify-center">
-                                  <Check size={12} className="text-white w-3 h-3 md:w-4 md:h-4" />
-                                </div>
-                              )}
-                            </div>
-                            <h3 className="font-bold text-base md:text-lg mb-1 md:mb-2 text-gray-900 dark:text-gray-100">
-                              {option.label}
-                            </h3>
-                            <p className="text-gray-600 dark:text-gray-400 text-xs md:text-sm">
-                              {option.description}
-                            </p>
-                          </motion.button>
-                        );
-                      })}
-                    </div>
-
-                    {/* Account Number Input for Mobile Payment */}
-                    {selectedPaymentMethod && selectedPaymentMethod.inputLabel && (
-                      <motion.div
-                        initial={{ opacity: 0, height: 0 }}
-                        animate={{ opacity: 1, height: 'auto' }}
-                        className="space-y-1 md:space-y-2"
-                      >
-                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                          {selectedPaymentMethod.inputLabel}
-                        </label>
-                        <input
-                          type="tel"
-                          value={accountNumber}
-                          onChange={(e) => {
-                            const value = e.target.value.replace(/\D/g, '').slice(0, 10);
-                            setAccountNumber(value);
-                            if (errors.accountNumber) {
-                              setErrors({ ...errors, accountNumber: "" });
-                            }
-                          }}
-                          placeholder={selectedPaymentMethod.placeholder}
-                          className={`
-                            w-full px-3 md:px-4 py-2 md:py-3 rounded-lg md:rounded-xl border
-                            focus:outline-none focus:ring-2 focus:ring-blue-500
-                            transition-all duration-200 text-sm md:text-base
-                            ${errors.accountNumber 
-                              ? 'border-red-500 dark:border-red-500' 
-                              : 'border-gray-200 dark:border-zinc-700 hover:border-gray-300 dark:hover:border-zinc-600'}
-                            bg-white dark:bg-zinc-800
-                          `}
-                        />
-                        {errors.accountNumber && (
-                          <p className="text-red-500 text-xs md:text-sm">{errors.accountNumber}</p>
-                        )}
-                      </motion.div>
-                    )}
-                  </motion.div>
-                )}
-
-                {/* Step 3: Review and Place Order */}
-                {step === 3 && (
-                  <motion.div
-                    initial={{ opacity: 0, x: -20 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    exit={{ opacity: 0, x: 20 }}
-                    className="space-y-4 md:space-y-6"
-                  >
-                    <h2 className="text-xl md:text-2xl font-bold">Review Your Order</h2>
-                    
-                    {/* Address Summary */}
-                    <div className="bg-gray-50 dark:bg-zinc-800 rounded-xl p-4 md:p-6">
-                      <h3 className="font-semibold mb-3 md:mb-4 flex items-center gap-2">
-                        <MapPin size={18} className="text-blue-600 w-4 h-4 md:w-5 md:h-5" />
-                        Shipping Address
-                      </h3>
-                      <p className="text-gray-700 dark:text-gray-300 text-sm md:text-base">
-                        {address.fullName}<br />
-                        {address.street}<br />
-                        {address.city}, {address.state} {address.zipCode}<br />
-                        {address.country}<br />
-                        📱 {address.phone}
-                      </p>
-                    </div>
-
-                    {/* Payment Method Summary */}
-                    {selectedPaymentMethod && (
-                      <div className="bg-gray-50 dark:bg-zinc-800 rounded-xl p-4 md:p-6">
-                        <h3 className="font-semibold mb-3 md:mb-4 flex items-center gap-2">
-                          <CreditCard size={18} className="text-blue-600 w-4 h-4 md:w-5 md:h-5" />
-                          Payment Method
-                        </h3>
-                        <div className="flex items-center gap-3">
-                          <div className={`p-2 md:p-3 rounded-lg ${selectedPaymentMethod.color} text-white`}>
-                            <selectedPaymentMethod.icon size={18} className="w-4 h-4 md:w-5 md:h-5" />
-                          </div>
-                          <div>
-                            <p className="font-medium text-sm md:text-base">{selectedPaymentMethod.label}</p>
-                            {accountNumber && (
-                              <p className="text-gray-600 dark:text-gray-400 text-xs md:text-sm">
-                                Account: {accountNumber}
-                              </p>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                    )}
-                  </motion.div>
-                )}
+                {renderStepContent()}
               </AnimatePresence>
-            </div>
-          </div>
-
-          {/* Right Column - Order Summary */}
-          <div className="space-y-6 md:space-y-8">
-            {/* Order Summary */}
-            <div className="bg-white dark:bg-zinc-900 rounded-2xl shadow-lg p-4 md:p-6 lg:sticky lg:top-8 border dark:border-zinc-700">
-              <h2 className="text-lg md:text-xl font-bold mb-4 md:mb-6">Order Summary</h2>
-              
-              {/* Cart Items */}
-              <div className="space-y-3 md:space-y-4 mb-4 md:mb-6 max-h-48 md:max-h-64 overflow-y-auto pr-2">
-                {cartItems.length === 0 ? (
-                  <div className="text-gray-500 text-center py-4 text-sm md:text-base">
-                    Your cart is empty.
-                  </div>
-                ) : (
-                  cartItems.map((item) => (
-                    <div key={item.id} className="flex justify-between items-center pb-3 border-b border-gray-100 dark:border-zinc-800">
-                      <div className="flex-1 min-w-0">
-                        <p className="font-medium text-sm md:text-base truncate">{item.title}</p>
-                        <p className="text-gray-600 dark:text-gray-400 text-xs md:text-sm">
-                          Qty: {item.quantity} × Br{item.price.toFixed(2)}
-                        </p>
-                      </div>
-                      <p className="font-semibold text-sm md:text-base whitespace-nowrap ml-2">
-                        Br{(item.price * item.quantity).toFixed(2)}
-                      </p>
-                    </div>
-                  ))
-                )}
-              </div>
-
-              {/* Price Breakdown */}
-              <div className="space-y-2 md:space-y-3">
-                <div className="flex justify-between">
-                  <span className="text-gray-600 dark:text-gray-400 text-sm md:text-base">Subtotal</span>
-                  <span className="text-sm md:text-base">Br{subtotal.toFixed(2)}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-600 dark:text-gray-400 text-sm md:text-base">Shipping</span>
-                  <span className="text-sm md:text-base">Br{shipping.toFixed(2)}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-600 dark:text-gray-400 text-sm md:text-base">Tax (8%)</span>
-                  <span className="text-sm md:text-base">Br{tax.toFixed(2)}</span>
-                </div>
-                <div className="border-t border-gray-200 dark:border-zinc-700 pt-3">
-                  <div className="flex justify-between text-base md:text-lg font-bold">
-                    <span>Total</span>
-                    <span className="text-xl md:text-2xl text-blue-600 dark:text-blue-400">
-                      Br{total.toFixed(2)}
-                    </span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Error Display */}
-              {errors.general && (
-                <div className="mt-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-3">
-                  <p className="text-red-600 dark:text-red-400 text-sm">{errors.general}</p>
-                </div>
-              )}
 
               {/* Navigation Buttons */}
-              <div className="mt-6 space-y-2 md:space-y-3">
+              <div className="mt-8 space-y-3">
                 {step < 3 ? (
                   <button
                     onClick={handleNextStep}
@@ -642,56 +713,112 @@ export default function ModernCheckout2025() {
               </div>
 
               {/* Security Badge */}
-              <div className="mt-4 md:mt-6 pt-4 md:pt-6 border-t border-gray-200 dark:border-zinc-700 text-center">
-                <div className="flex items-center justify-center gap-2 text-gray-600 dark:text-gray-400 text-xs md:text-sm">
-                  <div className="w-3 h-3 md:w-4 md:h-4 rounded-full bg-green-500 flex items-center justify-center">
-                    <Check size={8} className="text-white w-2 h-2 md:w-3 md:h-3" />
-                  </div>
+              <div className="mt-6 pt-6 border-t border-gray-200 dark:border-zinc-700 text-center">
+                <div className="flex items-center justify-center gap-2 text-gray-600 dark:text-gray-400 text-sm">
+                  <Shield className="w-4 h-4 text-green-500" />
                   <span>Secure SSL Encryption • 100% Safe Payment</span>
                 </div>
               </div>
             </div>
+          </div>
 
-            {/* Order Status */}
-            {isComplete && (
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="bg-gradient-to-br from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 rounded-2xl shadow-lg p-4 md:p-6 border border-green-200 dark:border-green-800"
-              >
-                <div className="text-center">
-                  <div className="w-12 h-12 md:w-16 md:h-16 bg-green-500 rounded-full flex items-center justify-center mx-auto mb-3 md:mb-4">
-                    <Check size={24} className="text-white w-5 h-5 md:w-8 md:h-8" />
-                  </div>
-                  <h3 className="text-lg md:text-xl font-bold text-gray-900 dark:text-gray-100 mb-2">
-                    Payment Successful!
-                  </h3>
-                  <p className="text-gray-600 dark:text-gray-300 text-sm md:text-base mb-3 md:mb-4">
-                    Your order has been placed successfully. You will receive a confirmation email shortly.
-                  </p>
-                  {orderId && (
-                    <div className="mb-3 md:mb-4 p-2 md:p-3 bg-white dark:bg-zinc-800 rounded-lg">
-                      <p className="text-xs md:text-sm font-mono text-gray-700 dark:text-gray-300">
-                        Order ID: {orderId}
-                      </p>
+          {/* Right Column - Order Summary */}
+          <div className="lg:col-span-1">
+            <div className="sticky top-8">
+              <div className="bg-white dark:bg-zinc-900 rounded-2xl shadow-lg p-6 border dark:border-zinc-700">
+                <h2 className="text-xl font-bold mb-6 flex items-center gap-2">
+                  <Package className="w-5 h-5" />
+                  Order Summary
+                </h2>
+                
+                <div className="space-y-4">
+                  {cartItems.map((item, index) => (
+                    <div key={index} className="flex justify-between items-center py-3 border-b border-gray-100 dark:border-zinc-700">
+                      <div>
+                        <p className="font-medium text-sm">{item.name}</p>
+                        <p className="text-xs text-gray-500">Qty: {item.quantity}</p>
+                      </div>
+                      <p className="font-semibold">Br{(item.price * item.quantity).toFixed(2)}</p>
                     </div>
-                  )}
-                  <div className="space-y-1 md:space-y-2 text-xs md:text-sm text-gray-700 dark:text-gray-300">
-                    <p className="flex items-center justify-center gap-1">
-                      <span>📧</span> Confirmation sent to your email
-                    </p>
-                    <p className="flex items-center justify-center gap-1">
-                      <span>📱</span> SMS notification will be sent
-                    </p>
-                    <p className="flex items-center justify-center gap-1">
-                      <span>🚚</span> Estimated delivery: 2-3 business days
-                    </p>
+                  ))}
+                </div>
+
+                {/* Price Breakdown */}
+                <div className="mt-6 space-y-3">
+                  <div className="flex justify-between">
+                    <span className="text-gray-600 dark:text-gray-400">Subtotal</span>
+                    <span>Br{subtotal.toFixed(2)}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-600 dark:text-gray-400">Shipping</span>
+                    <span>Br{shipping.toFixed(2)}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-600 dark:text-gray-400">Tax (8%)</span>
+                    <span>Br{tax.toFixed(2)}</span>
+                  </div>
+                  <div className="border-t border-gray-200 dark:border-zinc-700 pt-4">
+                    <div className="flex justify-between text-lg font-bold">
+                      <span>Total</span>
+                      <span className="text-xl text-blue-600 dark:text-blue-400">
+                        Br{total.toFixed(2)}
+                      </span>
+                    </div>
                   </div>
                 </div>
-              </motion.div>
-            )}
+              </div>
+
+              {/* Error Display */}
+              {errors.general && (
+                <div className="mt-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl p-4">
+                  <p className="text-red-600 dark:text-red-400 text-sm">{errors.general}</p>
+                </div>
+              )}
+            </div>
           </div>
         </div>
+
+        {/* Order Status */}
+        {isComplete && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50"
+            onClick={() => setIsComplete(false)}
+          >
+            <motion.div
+              initial={{ scale: 0.9 }}
+              animate={{ scale: 1 }}
+              className="bg-gradient-to-br from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 rounded-2xl shadow-2xl p-6 md:p-8 max-w-md w-full border border-green-200 dark:border-green-800"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="text-center">
+                <div className="w-16 h-16 bg-green-500 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <Check size={32} className="text-white" />
+                </div>
+                <h3 className="text-xl font-bold text-gray-900 dark:text-gray-100 mb-2">
+                  Payment Successful!
+                </h3>
+                <p className="text-gray-600 dark:text-gray-300 text-sm mb-4">
+                  Your order has been placed successfully. You will receive a confirmation email shortly.
+                </p>
+                {orderId && (
+                  <div className="mb-4 p-3 bg-white dark:bg-zinc-800 rounded-lg">
+                    <p className="text-sm font-mono text-gray-700 dark:text-gray-300">
+                      Order ID: {orderId}
+                    </p>
+                  </div>
+                )}
+                <button
+                  onClick={() => window.location.href = '/orders'}
+                  className="w-full py-3 bg-green-600 text-white rounded-lg font-semibold hover:bg-green-700 transition-colors"
+                >
+                  View Orders
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
       </div>
     </div>
   );

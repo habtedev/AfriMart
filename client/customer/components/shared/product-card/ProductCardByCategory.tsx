@@ -124,6 +124,7 @@ export default function ProductCardByCategory() {
     if (product) {
       addToCart({
         id: product._id,
+        _id: product._id,
         title: product.title,
         image: product.image,
         price: product.offPrice || product.price || 0,
