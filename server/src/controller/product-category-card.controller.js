@@ -1,7 +1,11 @@
-// Get a single product card by id
+// Get a single product card by id with ObjectId validation
+const mongoose = require("mongoose");
 exports.getProductCardById = async (req, res) => {
   try {
     const { id } = req.params;
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({ message: "Invalid product card ID" });
+    }
     const productCard = await ProductCard.findById(id);
     if (!productCard) return res.status(404).json({ message: "Product card not found" });
     res.json({ productCard });
@@ -16,21 +20,69 @@ const getImageUrl = (req) => req.file && req.file.path ? req.file.path : (req.bo
 // Create a new product card
 exports.createProductCard = async (req, res) => {
   try {
-    const { title, category, price, description, stock, isBestSeller, isTodaysDeal } = req.body;
+    // Debug: log all received fields and file
+    console.log('[DEBUG][createProductCard] req.body:', req.body);
+    console.log('[DEBUG][createProductCard] req.file:', req.file);
+    // Parse JSON fields if sent as strings
+    if (typeof req.body.color === "string") req.body.color = JSON.parse(req.body.color);
+    if (typeof req.body.size === "string") req.body.size = JSON.parse(req.body.size);
+    if (typeof req.body.variants === "string") req.body.variants = JSON.parse(req.body.variants);
+
+    const {
+      title,
+      category,
+      price,
+      offPrice,
+      description,
+      stock,
+      isBestSeller,
+      isTodayDeal,
+      shippingPrice,
+      shippingPercent,
+      color,
+      size,
+      variants
+    } = req.body;
     const image = getImageUrl(req);
+    // Debug: log what will be saved
+    console.log('[DEBUG][createProductCard] To save:', {
+      title,
+      image,
+      category,
+      price,
+      offPrice,
+      description,
+      stock,
+      isBestSeller,
+      isTodayDeal,
+      shippingPrice,
+      shippingPercent,
+      color,
+      size,
+      variants
+    });
     const productCard = await ProductCard.create({
       title,
       image,
       category,
       price,
+      offPrice,
       description,
       stock,
       isBestSeller,
-      isTodaysDeal
+      isTodayDeal,
+      shippingPrice,
+      shippingPercent,
+      color,
+      size,
+      variants
     });
+    // Debug: log result
+    console.log('[DEBUG][createProductCard] Created:', productCard);
     res.status(201).json({ message: "Product card created", productCard });
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    console.error('[DEBUG][createProductCard] Error:', err);
+    res.status(500).json({ message: err.message, error: err });
   }
 };
 
@@ -49,16 +101,58 @@ exports.getProductCards = async (req, res) => {
 
 // Update a product card
 exports.updateProductCard = async (req, res) => {
+    // Debug: log what is received for image
+    console.log('[DEBUG] req.file:', req.file);
+    console.log('[DEBUG] req.body.image:', req.body.image);
   try {
     const { id } = req.params;
-    const update = { ...req.body };
+    // Parse JSON fields if sent as strings
+    if (typeof req.body.color === "string") req.body.color = JSON.parse(req.body.color);
+    if (typeof req.body.size === "string") req.body.size = JSON.parse(req.body.size);
+    if (typeof req.body.variants === "string") req.body.variants = JSON.parse(req.body.variants);
+
+    const {
+      title,
+      category,
+      price,
+      offPrice,
+      description,
+      stock,
+      isBestSeller,
+      isTodayDeal,
+      shippingPrice,
+      shippingPercent,
+      color,
+      size,
+      variants
+    } = req.body;
     const image = getImageUrl(req);
-    if (image) update.image = image;
+    const update = {
+      title,
+      category,
+      price,
+      offPrice,
+      description,
+      stock,
+      isBestSeller,
+      isTodayDeal,
+      shippingPrice,
+      shippingPercent,
+      color,
+      size,
+      variants
+    };
+    if (req.file && image) {
+      update.image = image; // new file uploaded
+    } else if (typeof req.body.image === 'string' && req.body.image.trim() !== '') {
+      update.image = req.body.image; // keep existing image
+    }
+    // If image is empty string or not sent, do not update the image field
     const productCard = await ProductCard.findByIdAndUpdate(id, update, { new: true });
     if (!productCard) return res.status(404).json({ message: "Product card not found" });
     res.json({ message: "Product card updated", productCard });
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    res.status(500).json({ message: err.message, error: err });
   }
 };
 

@@ -39,7 +39,7 @@ function validateRegister(data) {
 // User login validation schema
 const loginSchema = Joi.object({
   email: Joi.string().email().required(),
-  password: Joi.string().min(6).max(128).required(),
+  password: Joi.string().min(8).max(128).required(),
 });
 
 function validateLogin(data) {

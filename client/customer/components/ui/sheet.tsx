@@ -11,9 +11,10 @@ function Sheet({ ...props }: React.ComponentProps<typeof SheetPrimitive.Root>) {
 }
 
 function SheetTrigger({
+  "aria-label": ariaLabel,
   ...props
-}: React.ComponentProps<typeof SheetPrimitive.Trigger>) {
-  return <SheetPrimitive.Trigger data-slot="sheet-trigger" {...props} />
+}: React.ComponentProps<typeof SheetPrimitive.Trigger> & { "aria-label"?: string }) {
+  return <SheetPrimitive.Trigger data-slot="sheet-trigger" aria-label={ariaLabel || "Open menu"} {...props} />;
 }
 
 function SheetClose({

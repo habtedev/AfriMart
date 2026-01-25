@@ -2,17 +2,20 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from "react";
 
 export interface CartItem {
-  id: string;
+  id: string; // MongoDB ObjectId
   title: string;
   image: string;
   price: number;
   quantity: number;
   stock: number;
+  color?: string;
+  size?: string;
+  variantId?: string;
 }
 
 interface CartContextType {
   items: CartItem[];
-  addToCart: (item: Omit<CartItem, "quantity" | "stock"> & { quantity?: number; stock: number }) => void;
+  addToCart: (item: Omit<CartItem, "quantity" | "stock"> & { quantity?: number; stock: number; color?: string; size?: string; variantId?: string }) => void;
   updateCartItemQuantity: (id: string, quantity: number) => void;
   removeFromCart: (id: string) => void;
   clearCart: () => void;
@@ -51,15 +54,23 @@ export function CartProvider({ children }: { children: ReactNode }) {
     }
   }, [items, isLoaded]);
 
-  const addToCart = (item: Omit<CartItem, "quantity" | "stock"> & { quantity?: number; stock: number }) => {
+  const addToCart = (item: Omit<CartItem, "quantity" | "stock"> & { quantity?: number; stock: number; color?: string; size?: string; variantId?: string }) => {
     setItems((prev) => {
-      const existing = prev.find((i) => i.id === item.id);
+      // Uniqueness: id + color + size + variantId
+      const existing = prev.find((i) =>
+        i.id === item.id &&
+        i.color === item.color &&
+        i.size === item.size &&
+        i.variantId === item.variantId
+      );
       const addQty = item.quantity && item.quantity > 0 ? item.quantity : 1;
       if (existing) {
         // Do not allow adding more than stock
         const newQty = Math.min(existing.quantity + addQty, item.stock);
         return prev.map((i) =>
-          i.id === item.id ? { ...i, quantity: newQty, stock: item.stock } : i
+          i.id === item.id && i.color === item.color && i.size === item.size && i.variantId === item.variantId
+            ? { ...i, quantity: newQty, stock: item.stock }
+            : i
         );
       }
       return [...prev, { ...item, quantity: Math.min(addQty, item.stock), stock: item.stock }];

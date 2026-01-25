@@ -53,7 +53,7 @@ const PAYMENT_OPTIONS = [
   },
 ] as const;
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL;
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL;
 
 interface AddressForm {
   fullName: string;
@@ -231,36 +231,19 @@ export default function ModernCheckout2025() {
   }, [paymentMethod, errors.accountNumber]);
 
   const handlePlaceOrder = async () => {
+    if (!user) {
+      setErrors({ general: "You must be logged in to complete payment. Please log in first." });
+      return;
+    }
     if (paymentMethod === "cash") {
       setIsComplete(true);
       return;
     }
 
-    // Prepare valid cart items for order creation
-    const validCartItems = cartItems.map((item: any) => ({
-      productId: item._id || item.id,
-      quantity: item.quantity,
-      price: item.price
-    }));
-
-    // Get userId from token
-    const userToken = typeof window !== 'undefined' ? localStorage.getItem("token") : null;
-    const userId = userToken ? getUserIdFromToken(userToken) : null;
-
     setLoading(true);
-    
     try {
-      if (!userId) {
-        setErrors({ general: "User not authenticated. Please log in again." });
-        setLoading(false);
-        return;
-      }
-
-      if (paymentMethod === "chapa") {
-        await initiateChapaPayment();
-      } else {
-        await createOrder();
-      }
+      // Only initiate payment; do not create order from frontend
+      await initiateChapaPayment();
     } catch (error) {
       console.error("Payment failed:", error);
       setErrors({ 
@@ -272,12 +255,68 @@ export default function ModernCheckout2025() {
   };
 
   const initiateChapaPayment = async () => {
-    const userToken = typeof window !== 'undefined' ? localStorage.getItem("token") : null;
+    const userId = user?.id;
     const txRef = `TX-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-    
+
+    // Prepare valid cart items for order cache (ensure productId is MongoDB ObjectId)
+    const objectIdPattern = /^[a-f\d]{24}$/i;
+    let validCartItems = cartItems.map((item: any) => ({
+      productId: item.id,
+      quantity: item.quantity,
+      price: item.price
+    }));
+    // Filter out invalid productIds
+    const filteredCartItems = validCartItems.filter(item => objectIdPattern.test(String(item.productId)));
+    if (filteredCartItems.length !== validCartItems.length) {
+      // Remove invalid items from cart and localStorage
+      const invalidIds = validCartItems.filter(item => !objectIdPattern.test(String(item.productId))).map(item => item.productId);
+      if (typeof window !== 'undefined') {
+        const stored = localStorage.getItem("afrimart_cart");
+        if (stored) {
+          const cartArr = JSON.parse(stored);
+          const cleaned = cartArr.filter((item: any) => objectIdPattern.test(String(item.id)));
+          localStorage.setItem("afrimart_cart", JSON.stringify(cleaned));
+        }
+      }
+      if (typeof clearCart === 'function') {
+        // Remove all and re-add only valid
+        clearCart();
+        setTimeout(() => {
+          filteredCartItems.forEach((item: any) => {
+            // Re-add valid items (assumes addToCart is available in scope)
+            if (typeof addToCart === 'function') addToCart({ ...item, stock: 99 });
+          });
+        }, 0);
+      }
+      alert(`Some invalid products were removed from your cart: ${invalidIds.join(", ")}`);
+      return;
+    }
+    validCartItems = filteredCartItems;
+    // Save order data to cache before payment
+    const cachePayload = {
+      tx_ref: txRef,
+      userId,
+      items: validCartItems,
+      shippingAddress: address,
+      totalAmount: total
+    };
+    const cacheRes = await fetch(`${API_BASE_URL}/api/order-cache`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      credentials: "include",
+      body: JSON.stringify(cachePayload),
+    });
+    if (!cacheRes.ok) {
+      const errorText = await cacheRes.text();
+      console.error("Order cache save error:", errorText);
+      throw new Error("Failed to save order data before payment");
+    }
+
     const safeDescription = `Order for ${address.fullName} - ${address.street} - ${address.city}`
       .replace(/[^a-zA-Z0-9\-_ .]/g, " ");
-    
+
     const chapaPayload = {
       amount: total,
       currency: "ETB",
@@ -286,82 +325,87 @@ export default function ModernCheckout2025() {
       last_name: address.fullName.split(" ")[1] || "Customer",
       tx_ref: txRef,
       callback_url: `${API_BASE_URL}/chapa/webhook`,
-      return_url: window.location.origin + "/order-success",
-      customization_title: "Order Payment",
-      custom_description: safeDescription
+      return_url: window.location.origin + "/order-success"
     };
 
-    const response = await fetch(`${API_BASE_URL}/chapa/pay`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        ...(userToken ? { "Authorization": `Bearer ${userToken}` } : {})
-      },
-      credentials: "include",
-      body: JSON.stringify(chapaPayload),
-    });
+    let response, data;
+    try {
+      response = await fetch(`${API_BASE_URL}/api/chapa/pay`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        credentials: "include",
+        body: JSON.stringify(chapaPayload),
+      });
+    } catch (err) {
+      console.error("Network error during Chapa pay fetch:", err);
+      setError("Network error: " + (err?.message || err));
+      throw err;
+    }
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error("Chapa pay error response:", errorText);
-      throw new Error("Payment initiation failed");
+      let errorJson;
+      try { errorJson = JSON.parse(errorText); } catch { errorJson = errorText; }
+      console.error("Chapa pay error response:", errorJson);
+      setError("Payment initiation failed: " + (errorJson?.message || errorJson));
+      throw new Error("Payment initiation failed: " + (errorJson?.message || errorJson));
     }
 
-    const data = await response.json();
-    
+    try {
+      data = await response.json();
+    } catch (err) {
+      console.error("Failed to parse Chapa pay response as JSON:", err);
+      setError("Invalid response from payment server.");
+      throw err;
+    }
+
     if (data.data?.checkout_url) {
+      // Store order data in sessionStorage for use after payment
+      sessionStorage.setItem('pendingOrder', JSON.stringify({
+        tx_ref: txRef,
+        userId,
+        items: validCartItems,
+        shippingAddress: address,
+        totalAmount: total
+      }));
       window.location.href = data.data.checkout_url;
     } else {
+      console.error("No Chapa checkout URL received. Full response:", data);
+      setError("No Chapa checkout URL received. Please try again or contact support.");
       throw new Error("No Chapa checkout URL received");
     }
   };
 
-  const createOrder = async () => {
-    const userToken = typeof window !== 'undefined' ? localStorage.getItem("token") : null;
-    
-    const generatedOrderId = `ORDER-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-    
-    const validCartItems = cartItems.map((item: any) => ({
-      productId: item.id || item._id,
-      quantity: item.quantity,
-      price: item.price
-    }));
-
-    const payload = {
-      orderId: generatedOrderId,
-      userId: getUserIdFromToken(userToken || ''),
-      items: validCartItems,
-      shippingAddress: address,
-      totalAmount: total,
-      paymentMethod: paymentMethod,
-      paymentStatus: "pending"
-    };
-
-    const response = await fetch(`${API_BASE_URL}/order/create`, {
-      method: "POST",
+  // After payment success, create order in backend
+  useEffect(() => {
+    // Only run on /order-success page
+    if (typeof window === 'undefined') return;
+    if (!window.location.pathname.includes('order-success')) return;
+    const pendingOrder = sessionStorage.getItem('pendingOrder');
+    if (!pendingOrder) return;
+    const orderData = JSON.parse(pendingOrder);
+    // Call backend to create order
+    fetch(`${API_BASE_URL}/api/order`, {
+      method: 'POST',
       headers: {
-        "Content-Type": "application/json",
-        ...(userToken ? { "Authorization": `Bearer ${userToken}` } : {})
+        'Content-Type': 'application/json',
+        ...(localStorage.getItem('token') ? { 'Authorization': `Bearer ${localStorage.getItem('token')}` } : {})
       },
-      credentials: "include",
-      body: JSON.stringify(payload),
-    });
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error("Order creation error:", errorText);
-      throw new Error("Failed to create order");
-    }
-
-    setOrderId(generatedOrderId);
-    setIsComplete(true);
-    clearCart();
-    
-    // Redirect to orders page after successful non-Chapa payment
-    if (typeof window !== 'undefined') {
-      window.location.href = '/orders';
-    }
-  };
+      credentials: 'include',
+      body: JSON.stringify(orderData)
+    })
+      .then(res => res.json())
+      .then(data => {
+        // Order created, clear cart and pendingOrder
+        clearCart();
+        sessionStorage.removeItem('pendingOrder');
+      })
+      .catch(err => {
+        console.error('Order creation failed:', err);
+      });
+  }, []);
 
   // Clear general error when step changes
   useEffect(() => {

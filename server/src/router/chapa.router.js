@@ -3,6 +3,7 @@ const helmet = require('helmet')
 const rateLimit = require('express-rate-limit')
 const { validateChapaPayment } = require('../utils/validator')
 const controller = require('../controller/chapa.controller')
+const chapaWebhook = require('../webhook/chapa.webhook')
 
 const router = express.Router()
 
@@ -16,6 +17,6 @@ router.post('/pay', (req, res, next) => {
 }, controller.initiatePayment)
 
 router.get('/verify', controller.verifyPayment)
-router.post('/webhook', express.json(), controller.webhook)
+router.post('/webhook', express.json(), chapaWebhook.webhook)
 
 module.exports = router

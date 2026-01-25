@@ -31,6 +31,7 @@ export interface Order {
   id: string;
   _id?: string;
   orderId?: string;
+  tx_ref?: string;
   date: string;
   createdAt?: string;
   status: 'pending' | 'processing' | 'shipped' | 'delivered' | 'cancelled' | string;
@@ -125,7 +126,7 @@ const OrderList: React.FC<OrderListProps> = ({
   // Helper function to normalize order data
   const normalizeOrder = (order: Order): Order => {
     return {
-      id: order.id || order._id || order.orderId || `order-${Date.now()}`,
+      id: order.id || order._id || order.orderId || order.tx_ref || `order-${Date.now()}`,
       date: order.date || order.createdAt || new Date().toISOString(),
       status: order.status || order.paymentStatus || 'pending',
       total: order.total ?? order.totalAmount ?? 0,

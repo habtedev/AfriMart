@@ -1,7 +1,13 @@
+  // ...existing code...
+  // Example: Add a tracking link for each order
+  // Replace 'order.tx_ref' with the actual tx_ref from your order data
+  // Place this inside your order list rendering logic:
+  // <a href={`https://afrimart.com/track/${order.tx_ref}`} target="_blank" rel="noopener noreferrer" className="text-blue-600 underline">Track Order</a>
 "use client";
 
 import React, { useState, useEffect } from 'react';
 import { useOrders } from '@/components/shared/order';
+import { useAuth } from '@/context/AuthContext';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   ShoppingBag, 
@@ -24,7 +30,26 @@ import OrderList from '@/components/shared/order/OrderList';
 import OrderDetails from '@/components/shared/order/OrderDetails';
 
 const OrdersPage = () => {
-  const { orders, loading, error, refetch } = useOrders();
+  const { user } = useAuth();
+  // If not authenticated, redirect or show message
+  if (user === null) {
+    if (typeof window !== 'undefined') {
+      window.location.href = '/auth/login';
+    }
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <h1 className="text-2xl font-bold mb-4">Please log in to view your orders.</h1>
+          <a href="/auth/login" className="text-blue-600 underline">Go to Login</a>
+        </div>
+      </div>
+    );
+  }
+    // Retry handler for error state
+    const handleRetry = () => {
+      window.location.reload();
+    };
+  const { orders, loading, error } = useOrders();
   const [selectedOrder, setSelectedOrder] = useState<any>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
@@ -40,11 +65,11 @@ const OrdersPage = () => {
         order.id?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         order.orderId?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         order.shippingAddress?.fullName?.toLowerCase().includes(searchTerm.toLowerCase());
-      
-      // Status filter
+
+      // Status filter (compare uppercase)
       const matchesStatus = statusFilter === 'all' || 
-        order.status?.toLowerCase() === statusFilter.toLowerCase();
-      
+        (order.status && order.status.toUpperCase() === statusFilter.toUpperCase());
+
       return matchesSearch && matchesStatus;
     });
   }, [orders, searchTerm, statusFilter]);
@@ -52,18 +77,19 @@ const OrdersPage = () => {
   // Get unique statuses for filter
   const statuses = React.useMemo(() => {
     if (!orders) return [];
-    const uniqueStatuses = new Set(orders.map(order => order.status).filter(Boolean));
+    // Always use uppercase for statuses
+    const uniqueStatuses = new Set(orders.map(order => order.status && order.status.toUpperCase()).filter(Boolean));
     return Array.from(uniqueStatuses);
   }, [orders]);
 
   // Statistics
   const stats = React.useMemo(() => {
     if (!orders) return null;
-    
+
     const totalOrders = orders.length;
     const totalSpent = orders.reduce((sum, order) => sum + (order.total || 0), 0);
-    const pendingOrders = orders.filter(order => order.status === 'pending').length;
-    const deliveredOrders = orders.filter(order => order.status === 'delivered').length;
+    const pendingOrders = orders.filter(order => order.status && order.status.toUpperCase() === 'PENDING').length;
+    const deliveredOrders = orders.filter(order => order.status && order.status.toUpperCase() === 'DELIVERED').length;
 
     return {
       totalOrders,
@@ -74,10 +100,7 @@ const OrdersPage = () => {
     };
   }, [orders]);
 
-  // Error handling with retry
-  const handleRetry = () => {
-    refetch?.();
-  };
+
 
   // Handle back navigation
   const handleBack = () => {
@@ -158,7 +181,7 @@ const OrdersPage = () => {
             Unable to Load Orders
           </h1>
           <p className="text-gray-600 mb-6">
-            {error.message || 'There was an error loading your orders. Please try again.'}
+            {error || 'There was an error loading your orders. Please try again.'}
           </p>
           <div className="space-y-3">
             <button
@@ -297,7 +320,7 @@ const OrdersPage = () => {
                     <option value="all">All Status</option>
                     {statuses.map(status => (
                       <option key={status} value={status}>
-                        {status.charAt(0).toUpperCase() + status.slice(1)}
+                        {status.charAt(0) + status.slice(1).toLowerCase()}
                       </option>
                     ))}
                   </select>

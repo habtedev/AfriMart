@@ -12,12 +12,10 @@ export function useOrders() {
       setLoading(true);
       setError(null);
       try {
-        const baseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || '';
-        const url = `${baseUrl}/order`;
+        const baseUrl = process.env.NEXT_PUBLIC_API_URL || '';
+        const url = `${baseUrl}/api/order`;
         console.debug('Fetching orders from:', url);
-        const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
         const res = await fetch(url, {
-          headers: token ? { Authorization: `Bearer ${token}` } : {},
           credentials: 'include',
         });
         console.debug('Response status:', res.status);

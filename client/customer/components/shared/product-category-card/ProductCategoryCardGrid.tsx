@@ -56,20 +56,31 @@ export default function ProductCategoryCardGrid({
           >
             {/* Image */}
             <div
-              className="relative aspect-[4/5] cursor-pointer overflow-hidden"
+              className="relative aspect-4/5 cursor-pointer overflow-hidden"
               onClick={() => handleCategoryClick(cat.category)}
             >
-              <Image
-                src={cat.image}
-                alt={cat.title}
-                fill
-                sizes="(max-width: 768px) 100vw, 25vw"
-                className="object-cover transition-transform duration-700 group-hover:scale-110"
-                priority={false}
-              />
+              {(cat.image && cat.image !== "") ? (
+                <Image
+                  src={cat.image}
+                  alt={cat.title}
+                  fill
+                  sizes="(max-width: 768px) 100vw, 25vw"
+                  className="object-cover transition-transform duration-700 group-hover:scale-110"
+                  priority={false}
+                />
+              ) : (
+                <Image
+                  src="/placeholder-image.png"
+                  alt="No image available"
+                  fill
+                  sizes="(max-width: 768px) 100vw, 25vw"
+                  className="object-cover transition-transform duration-700 group-hover:scale-110 opacity-60"
+                  priority={false}
+                />
+              )}
 
               {/* Gradient Overlay */}
-              <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent opacity-70" />
+              <div className="absolute inset-0 bg-linear-to-t from-black/70 via-black/20 to-transparent opacity-70" />
 
               {/* Floating Actions */}
               <div
@@ -95,9 +106,9 @@ export default function ProductCategoryCardGrid({
                       id: cat._id,
                       title: cat.title,
                       image: cat.image,
-                      price: 0,
+                      price: (cat as any).price || 0,
                       quantity: 1,
-                      stock: 1, // Default to 1 if stock is unknown; update if you have real stock info
+                      stock: (cat as any).stock || 1,
                     });
                   }}
                 >

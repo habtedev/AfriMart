@@ -1,11 +1,13 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+
+import React from "react";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import ProductCard from "./ProductCard";
 import { useCart } from "@/context/CartContext";
 import { ChevronRight } from "lucide-react";
+import useProducts from "@/lib/useProducts";
 
 interface Product {
   _id: string;
@@ -19,12 +21,7 @@ interface Product {
   stock: number;
 }
 
-const fetchProducts = async (): Promise<Product[]> => {
-  const baseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || "/api";
-  const res = await fetch(`${baseUrl}/product-cards`);
-  if (!res.ok) throw new Error("Failed to load products");
-  return res.json();
-};
+
 
 /* ---------------------------------- */
 /* Section Wrapper */
@@ -51,6 +48,7 @@ function ProductSection({
         </h2>
 
         <button
+          aria-label="View all products in this category"
           className="
             flex items-center gap-1
             text-sm font-medium
@@ -107,17 +105,11 @@ function ProductSection({
 /* Main Component */
 /* ---------------------------------- */
 
+
 export default function ProductCardByCategory() {
-  const [products, setProducts] = useState<Product[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { products, loading, error } = useProducts();
   const router = useRouter();
   const { addToCart } = useCart();
-
-  useEffect(() => {
-    fetchProducts()
-      .then(setProducts)
-      .finally(() => setLoading(false));
-  }, []);
 
   const handleAddToCart = (id: string) => {
     const product = products.find((p) => p._id === id);
@@ -137,7 +129,6 @@ export default function ProductCardByCategory() {
     router.push(`/products/${id}`);
   };
 
-  /* Loading Skeleton */
   if (loading) {
     return (
       <div className="space-y-12">
@@ -159,6 +150,20 @@ export default function ProductCardByCategory() {
             </div>
           </div>
         ))}
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div style={{ color: 'red', whiteSpace: 'pre-wrap' }}>
+        <strong>Error:</strong> {error}
+        <br />
+        <span>
+          Please ensure the backend is running, the API URL is correct in your .env, and the API endpoint is accessible.<br />
+          Try opening <code>{process.env.NEXT_PUBLIC_API_URL}/api/product-cards</code> directly in your browser.<br />
+          Check the browser console for more details.
+        </span>
       </div>
     );
   }

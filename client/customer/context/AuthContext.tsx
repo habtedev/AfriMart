@@ -17,31 +17,32 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
 
-  // Load user from localStorage on mount
+
+  // Load user from backend on mount (no localStorage)
   React.useEffect(() => {
-    try {
-      const token = localStorage.getItem("token");
-      const userData = localStorage.getItem("user");
-      if (token && userData) {
-        setUser(JSON.parse(userData));
+    async function fetchUser() {
+      try {
+        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/auth/me`, {
+          credentials: 'include',
+        });
+        const data = await res.json();
+        if (res.ok && data.user) {
+          setUser(data.user);
+        } else {
+          setUser(null);
+        }
+      } catch {
+        setUser(null);
       }
-    } catch (err) {
-      setUser(null);
     }
+    fetchUser();
   }, []);
 
   const login = (user: User) => {
     setUser(user);
-    try {
-      localStorage.setItem("user", JSON.stringify(user));
-    } catch {}
   };
   const logout = () => {
     setUser(null);
-    try {
-      localStorage.removeItem("user");
-      localStorage.removeItem("token");
-    } catch {}
   };
 
   return (

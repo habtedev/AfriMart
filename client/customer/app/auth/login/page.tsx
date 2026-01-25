@@ -7,9 +7,15 @@ import { Eye, EyeOff, Loader2, AlertCircle } from "lucide-react";
 import Link from "next/link";
 
 export default function LoginPage() {
-    const { login } = useAuth();
+  const { login } = useAuth();
   const router = useRouter();
   const searchParams = useSearchParams();
+  const [verifiedMsg, setVerifiedMsg] = useState("");
+  useEffect(() => {
+    if (searchParams?.get("verified") === "1") {
+      setVerifiedMsg("Your email has been verified! You can now log in.");
+    }
+  }, [searchParams]);
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -49,7 +55,7 @@ export default function LoginPage() {
     setError("");
 
     try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/auth/login`, {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/auth/login`, {
         method: "POST",
         headers: { 
           "Content-Type": "application/json",
@@ -66,6 +72,14 @@ export default function LoginPage() {
 
       if (!res.ok) {
         throw new Error(data.message || "Invalid email or password");
+      }
+
+      // If user is not verified, redirect to verify-email page
+      if (data.user && data.user.isEmailVerified === false) {
+        router.replace(`/auth/verify-email?email=${encodeURIComponent(data.user.email)}`);
+        setError("Please verify your email before logging in.");
+        setLoading(false);
+        return;
       }
 
       // Store token with validation
@@ -116,6 +130,9 @@ export default function LoginPage() {
           <h1 className="text-3xl font-bold text-zinc-900 dark:text-zinc-100 mb-2">
             Welcome Back
           </h1>
+          {verifiedMsg && (
+            <div className="mb-2 text-green-600 font-medium">{verifiedMsg}</div>
+          )}
           <p className="text-sm text-zinc-500 dark:text-zinc-400">
             Sign in to your account to continue
           </p>
@@ -227,6 +244,18 @@ export default function LoginPage() {
             <div className="flex-1 h-px bg-zinc-200 dark:bg-zinc-800"></div>
           </div>
 
+          {/* Google Sign-In Button */}
+          <div className="mb-4 flex flex-col items-center">
+            <a
+              href={process.env.NEXT_PUBLIC_API_URL + "/api/social-auth/google"}
+              className="w-full flex items-center justify-center gap-3 rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 py-3 font-semibold text-zinc-700 dark:text-zinc-100 shadow hover:bg-zinc-50 dark:hover:bg-zinc-900 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500/30"
+              style={{ textDecoration: 'none' }}
+            >
+              <svg width="22" height="22" viewBox="0 0 48 48" className="h-5 w-5" aria-hidden="true"><g><path fill="#4285F4" d="M24 9.5c3.54 0 6.7 1.22 9.19 3.23l6.85-6.85C35.64 2.69 30.18 0 24 0 14.82 0 6.71 5.48 2.69 13.44l7.98 6.2C12.13 13.13 17.62 9.5 24 9.5z"/><path fill="#34A853" d="M46.1 24.55c0-1.64-.15-3.22-.42-4.74H24v9.01h12.42c-.54 2.9-2.18 5.36-4.64 7.01l7.19 5.59C43.93 37.13 46.1 31.3 46.1 24.55z"/><path fill="#FBBC05" d="M10.67 28.65A14.5 14.5 0 0 1 9.5 24c0-1.62.28-3.19.77-4.65l-7.98-6.2A23.93 23.93 0 0 0 0 24c0 3.77.9 7.34 2.49 10.49l8.18-5.84z"/><path fill="#EA4335" d="M24 48c6.18 0 11.36-2.04 15.14-5.56l-7.19-5.59c-2.01 1.35-4.59 2.16-7.95 2.16-6.38 0-11.87-3.63-14.33-8.89l-8.18 5.84C6.71 42.52 14.82 48 24 48z"/><path fill="none" d="M0 0h48v48H0z"/></g></svg>
+              Continue with Google
+            </a>
+          </div>
+
           {/* Footer Links */}
           <div className="space-y-4 text-center">
             <p className="text-sm text-zinc-500 dark:text-zinc-400">
@@ -238,7 +267,6 @@ export default function LoginPage() {
                 Create account
               </Link>
             </p>
-            
             {/* Terms & Privacy */}
             <p className="text-xs text-zinc-400 dark:text-zinc-500">
               By continuing, you agree to our{" "}

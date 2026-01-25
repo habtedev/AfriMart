@@ -56,6 +56,9 @@ export default function Header() {
   const pathname = usePathname();
   const [search, setSearch] = React.useState("");
   const { user, logout } = useAuth();
+  // Only consider user logged in if they have a valid session (not just after registration)
+  // If you want to further restrict, you can check for a token or verified flag
+  // Show user info if user is present (social login or sign in), not after registration only
   const isLoggedIn = !!user;
 
   const { language, setLanguage } = useLanguage();
@@ -74,7 +77,7 @@ export default function Header() {
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-background/80 backdrop-blur-xl shadow-sm">
       {/* ───────────── Desktop Top Bar ───────────── */}
-      <div className="hidden sm:block bg-gradient-to-r from-zinc-900/90 to-zinc-800/80 text-zinc-100 text-[11px] py-1.5">
+      <div className="hidden sm:block bg-linear-to-r from-zinc-900/90 to-zinc-800/80 text-zinc-100 text-[11px] py-1.5">
         <div className="max-w-7xl mx-auto px-6 flex justify-between items-center">
           <div className="flex items-center gap-6">
             <span className="flex items-center gap-1.5"><Phone className="h-3 w-3" /> <span className="font-semibold tracking-wide">+251 911 234 567</span></span>
@@ -107,11 +110,13 @@ export default function Header() {
               <Menu className="h-6 w-6" />
             </Button>
           </SheetTrigger>
-          <SheetContent side="left" className="w-[300px] flex flex-col p-0">
+          <SheetContent side="left" className="w-75 flex flex-col p-0">
             <SheetHeader className="p-6 bg-primary text-primary-foreground text-left">
               <SheetTitle className="text-white flex items-center gap-2">
                 <User className="h-5 w-5" /> 
-                {isLoggedIn ? "Hello, User" : "Welcome to AfriMart"}
+                {isLoggedIn ? (
+                  user?.name ? `Hello, ${user.name}` : user?.email ? user.email : "Logged in"
+                ) : "Welcome to AfriMart"}
               </SheetTitle>
             </SheetHeader>
 
@@ -150,8 +155,8 @@ export default function Header() {
                   </>
                 ) : (
                   <>
-                    <Link href={`/auth/login?next=${encodeURIComponent(pathname || '/')}`} className="flex items-center gap-3 p-3 text-sm rounded-md hover:bg-accent"><LogIn className="h-4 w-4"/> {t.signIn}</Link>
-                    <Link href={`/auth/register?next=${encodeURIComponent(pathname || '/')}`} className="flex items-center gap-3 p-3 text-sm rounded-md hover:bg-accent font-bold text-primary"><UserPlus className="h-4 w-4"/> {t.register}</Link>
+                    <Link href={`/auth/login?next=${encodeURIComponent(pathname || '/')}`} className="flex items-center gap-3 p-3 text-sm rounded-md hover:bg-accent font-bold text-primary"><LogIn className="h-4 w-4"/> {t.signIn}</Link>
+                    <Link href={`/auth/register?next=${encodeURIComponent(pathname || '/')}`} className="flex items-center gap-3 p-3 text-sm rounded-md hover:bg-accent"><UserPlus className="h-4 w-4"/> {t.register}</Link>
                   </>
                 )}
               </div>
@@ -169,10 +174,10 @@ export default function Header() {
 
         {/* Logo */}
         <Link href="/" className="flex items-center gap-2 mr-auto lg:mr-0 group">
-          <div className="bg-gradient-to-br from-primary to-primary/80 text-white rounded-xl p-2 shadow-lg group-hover:scale-105 transition-transform">
+          <div className="bg-linear-to-br from-primary to-primary/80 text-white rounded-xl p-2 shadow-lg group-hover:scale-105 transition-transform">
             <ShoppingCart className="h-6 w-6" />
           </div>
-          <span className="font-black text-xl tracking-tight bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent group-hover:from-primary group-hover:to-blue-400 transition-colors">AFRIMART</span>
+          <span className="font-black text-xl tracking-tight bg-linear-to-r from-primary to-primary/60 bg-clip-text text-transparent group-hover:from-primary group-hover:to-blue-400 transition-colors">AFRIMART</span>
         </Link>
 
         {/* Search (Desktop) */}
@@ -193,8 +198,8 @@ export default function Header() {
               <Button variant="outline" className="hidden sm:flex gap-2 items-center px-4 py-2 rounded-xl border border-primary/30 shadow-sm hover:bg-primary/10 transition-colors">
                 <User className="h-5 w-5 text-primary" />
                 <div className="text-left hidden lg:block">
-                  <p className="text-[10px] text-muted-foreground leading-none">Account</p>
-                  <p className="text-xs font-bold text-primary">{isLoggedIn ? "My Profile" : "Login"}</p>
+                  <p className="text-[10px] text-muted-foreground leading-none">{isLoggedIn ? (user?.email || user?.name || "Account") : "Account"}</p>
+                  <p className="text-xs font-bold text-primary">{isLoggedIn ? (user?.name || user?.email || "My Profile") : "Login"}</p>
                 </div>
               </Button>
             </DropdownMenuTrigger>
@@ -217,7 +222,7 @@ export default function Header() {
           </DropdownMenu>
 
           {/* Cart */}
-          <Button asChild className="relative rounded-full h-11 w-11 p-0 bg-gradient-to-br from-primary/80 to-blue-500/80 shadow-lg hover:scale-105 transition-transform" variant="secondary">
+          <Button asChild className="relative rounded-full h-11 w-11 p-0 bg-linear-to-br from-primary/80 to-blue-500/80 shadow-lg hover:scale-105 transition-transform" variant="secondary">
             <Link href="/cart">
               <ShoppingCart className="h-6 w-6 text-white" />
               {cartCount > 0 && <Badge className="absolute -top-1 -right-1 px-1.5 h-5 min-w-5 flex items-center justify-center rounded-full bg-white text-primary font-bold shadow">{cartCount}</Badge>}

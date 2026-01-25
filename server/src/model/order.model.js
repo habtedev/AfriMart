@@ -1,7 +1,7 @@
 const mongoose = require('mongoose');
 
 const orderSchema = new mongoose.Schema({
-  orderId: { type: String, required: true, unique: true },
+  tx_ref: { type: String, required: true }, // Chapa transaction reference
   userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
   items: [
     {
@@ -20,6 +20,12 @@ const orderSchema = new mongoose.Schema({
     phone: String
   },
   totalAmount: { type: Number, required: true },
+  email: { type: String },
+  payment: {
+    provider: { type: String },
+    email: { type: String }
+  },
+  status: { type: String, enum: ['pending', 'processing', 'shipped', 'delivered', 'cancelled', 'refunded', 'on_hold', 'PENDING', 'PROCESSING', 'SHIPPED', 'DELIVERED', 'CANCELLED', 'REFUNDED', 'ON_HOLD'], default: 'pending' },
   paymentStatus: { type: String, enum: ['PENDING', 'PAID', 'FAILED'], default: 'PENDING' },
   createdAt: { type: Date, default: Date.now },
   updatedAt: { type: Date, default: Date.now },

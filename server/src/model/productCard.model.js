@@ -22,6 +22,20 @@ const productCardSchema = new mongoose.Schema({
   },
   isBestSeller: { type: Boolean, default: false },
   isTodayDeal: { type: Boolean, default: false },
+  shippingDate: { type: Date },
+  shippingPrice: { type: Number },
+  shippingPercent: { type: Number },
+  color: { type: [String] }, // Optional array of colors
+  size: { type: [String] },  // Optional array of sizes
+  variants: [
+    {
+      color: { type: String },
+      size: { type: String },
+      stock: { type: Number, default: 0 },
+      sku: { type: String },
+      priceAdjustment: { type: Number }
+    }
+  ],
   createdAt: { type: Date, default: Date.now },
 });
 

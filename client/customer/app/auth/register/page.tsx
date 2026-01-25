@@ -135,7 +135,7 @@ export default function RegisterPage() {
     setSuccess("");
 
     try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/auth/register`, {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/auth/register`, {
         method: "POST",
         headers: { 
           "Content-Type": "application/json",
@@ -154,19 +154,14 @@ export default function RegisterPage() {
         throw new Error(data.message || "Registration failed");
       }
 
-      setSuccess("Account created successfully! Redirecting to login...");
-      
+      setSuccess("Account created successfully! Please check your email to verify your account.");
+
       // Store registration success in session for welcome message
       sessionStorage.setItem("registration_success", "true");
-      
-      // Redirect after delay
+
+      // Redirect to verify-email page after delay
       setTimeout(() => {
-        const next = searchParams?.get("next");
-        if (next) {
-          router.push(`/auth/login?next=${encodeURIComponent(next)}`);
-        } else {
-          router.push("/auth/login");
-        }
+        router.push(`/auth/verify-email?email=${encodeURIComponent(email.trim().toLowerCase())}`);
         router.refresh();
       }, 2000);
 
@@ -198,7 +193,7 @@ export default function RegisterPage() {
     );
 
   return (
-    <main className="min-h-screen flex items-center justify-center bg-gradient-to-br from-zinc-50 to-blue-50 dark:from-zinc-900 dark:to-zinc-950 px-4 py-8">
+    <main className="min-h-screen flex items-center justify-center bg-linear-to-br from-zinc-50 to-blue-50 dark:from-zinc-900 dark:to-zinc-950 px-4 py-8">
       <div className="w-full max-w-md">
         {/* Header */}
         <div className="text-center mb-8">
@@ -225,7 +220,7 @@ export default function RegisterPage() {
                 aria-live="assertive"
                 className="flex items-start gap-3 rounded-lg bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 px-4 py-3 text-sm text-red-600 dark:text-red-400"
               >
-                <AlertCircle className="h-5 w-5 flex-shrink-0 mt-0.5" />
+                <AlertCircle className="h-5 w-5 shrink-0 mt-0.5" />
                 <span>{error}</span>
               </div>
             )}
@@ -237,7 +232,7 @@ export default function RegisterPage() {
                 aria-live="polite"
                 className="flex items-start gap-3 rounded-lg bg-green-50 dark:bg-green-900/30 border border-green-200 dark:border-green-800 px-4 py-3 text-sm text-green-700 dark:text-green-400"
               >
-                <CheckCircle className="h-5 w-5 flex-shrink-0 mt-0.5" />
+                <CheckCircle className="h-5 w-5 shrink-0 mt-0.5" />
                 <span>{success}</span>
               </div>
             )}
@@ -433,7 +428,7 @@ export default function RegisterPage() {
               type="submit"
               disabled={!formValid || loading}
               aria-busy={loading}
-              className="w-full rounded-lg bg-gradient-to-r from-blue-600 to-blue-700 dark:from-blue-700 dark:to-blue-800 py-3.5 font-semibold text-white transition-all hover:from-blue-700 hover:to-blue-800 dark:hover:from-blue-600 dark:hover:to-blue-700 disabled:from-zinc-400 disabled:to-zinc-500 disabled:cursor-not-allowed shadow-lg shadow-blue-500/20 hover:shadow-blue-500/30 active:scale-[0.99]"
+              className="w-full rounded-lg bg-linear-to-r from-blue-600 to-blue-700 dark:from-blue-700 dark:to-blue-800 py-3.5 font-semibold text-white transition-all hover:from-blue-700 hover:to-blue-800 dark:hover:from-blue-600 dark:hover:to-blue-700 disabled:from-zinc-400 disabled:to-zinc-500 disabled:cursor-not-allowed shadow-lg shadow-blue-500/20 hover:shadow-blue-500/30 active:scale-[0.99]"
             >
               <span className="flex items-center justify-center gap-2">
                 {loading && <Loader2 className="h-5 w-5 animate-spin" aria-hidden="true" />}
@@ -447,6 +442,18 @@ export default function RegisterPage() {
             <div className="flex-1 h-px bg-zinc-200 dark:bg-zinc-800"></div>
             <span className="px-4 text-xs text-zinc-500 dark:text-zinc-400">Already have an account?</span>
             <div className="flex-1 h-px bg-zinc-200 dark:bg-zinc-800"></div>
+          </div>
+
+          {/* Google Sign-Up Button */}
+          <div className="mb-4 flex flex-col items-center">
+            <a
+              href={process.env.NEXT_PUBLIC_API_URL + "/api/social-auth/google"}
+              className="w-full flex items-center justify-center gap-3 rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 py-3 font-semibold text-zinc-700 dark:text-zinc-100 shadow hover:bg-zinc-50 dark:hover:bg-zinc-900 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500/30"
+              style={{ textDecoration: 'none' }}
+            >
+              <svg width="22" height="22" viewBox="0 0 48 48" className="h-5 w-5" aria-hidden="true"><g><path fill="#4285F4" d="M24 9.5c3.54 0 6.7 1.22 9.19 3.23l6.85-6.85C35.64 2.69 30.18 0 24 0 14.82 0 6.71 5.48 2.69 13.44l7.98 6.2C12.13 13.13 17.62 9.5 24 9.5z"/><path fill="#34A853" d="M46.1 24.55c0-1.64-.15-3.22-.42-4.74H24v9.01h12.42c-.54 2.9-2.18 5.36-4.64 7.01l7.19 5.59C43.93 37.13 46.1 31.3 46.1 24.55z"/><path fill="#FBBC05" d="M10.67 28.65A14.5 14.5 0 0 1 9.5 24c0-1.62.28-3.19.77-4.65l-7.98-6.2A23.93 23.93 0 0 0 0 24c0 3.77.9 7.34 2.49 10.49l8.18-5.84z"/><path fill="#EA4335" d="M24 48c6.18 0 11.36-2.04 15.14-5.56l-7.19-5.59c-2.01 1.35-4.59 2.16-7.95 2.16-6.38 0-11.87-3.63-14.33-8.89l-8.18 5.84C6.71 42.52 14.82 48 24 48z"/><path fill="none" d="M0 0h48v48H0z"/></g></svg>
+              Sign up with Google
+            </a>
           </div>
 
           {/* Login Link */}

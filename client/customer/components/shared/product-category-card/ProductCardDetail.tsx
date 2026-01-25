@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { useState } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useCart } from "@/context/CartContext";
 import { ShoppingCart, Heart, Star, Share2, Truck, Shield } from "lucide-react";
 
@@ -40,8 +40,22 @@ export default function ProductCardDetail({
   const [quantity, setQuantity] = useState(1);
   const { addToCart } = useCart();
   const [showToast, setShowToast] = useState(false);
-  const inStock = stock > 0;
+  const [selectedColor, setSelectedColor] = useState<string | undefined>(undefined);
+  const [selectedSize, setSelectedSize] = useState<string | undefined>(undefined);
   const discount = originalPrice ? Math.round(((originalPrice - price) / originalPrice) * 100) : 0;
+
+  // Assume color and size are passed as props or fetched from product detail API
+  // For demo, try to extract from props if available
+  const colorOptions = (Array.isArray((category as any)?.color) ? (category as any).color : undefined) || (category as any)?.colors || [];
+  const sizeOptions = (Array.isArray((category as any)?.size) ? (category as any).size : undefined) || (category as any)?.sizes || [];
+
+  // If color/size are not in category, try to get from props
+  useEffect(() => {
+    if (colorOptions.length && !selectedColor) setSelectedColor(colorOptions[0]);
+    if (sizeOptions.length && !selectedSize) setSelectedSize(sizeOptions[0]);
+  }, [colorOptions, sizeOptions]);
+
+  const inStock = stock > 0;
 
   const handleWishlistToggle = () => {
     setIsWishlisted(!isWishlisted);
@@ -292,17 +306,49 @@ export default function ProductCardDetail({
             </div>
 
             {/* Add to Cart Button */}
+            {/* Color selection */}
+            {colorOptions.length > 0 && (
+              <div className="mb-2">
+                <label className="font-medium mr-2">Color:</label>
+                <select
+                  value={selectedColor}
+                  onChange={e => setSelectedColor(e.target.value)}
+                  className="border rounded px-2 py-1"
+                >
+                  {colorOptions.map((c: string) => (
+                    <option key={c} value={c}>{c}</option>
+                  ))}
+                </select>
+              </div>
+            )}
+            {/* Size selection */}
+            {sizeOptions.length > 0 && (
+              <div className="mb-2">
+                <label className="font-medium mr-2">Size:</label>
+                <select
+                  value={selectedSize}
+                  onChange={e => setSelectedSize(e.target.value)}
+                  className="border rounded px-2 py-1"
+                >
+                  {sizeOptions.map((s: string) => (
+                    <option key={s} value={s}>{s}</option>
+                  ))}
+                </select>
+              </div>
+            )}
             <button
               disabled={!inStock}
               onClick={() => {
-                  addToCart({
-                    id: sku || title,
-                    title,
-                    image,
-                    price: typeof price === "number" ? price : 0,
-                    quantity,
-                    stock,
-                  });
+                addToCart({
+                  id: sku || title,
+                  title,
+                  image,
+                  price: typeof price === "number" ? price : 0,
+                  quantity,
+                  stock,
+                  color: selectedColor,
+                  size: selectedSize,
+                });
                 setShowToast(true);
                 setTimeout(() => setShowToast(false), 1800);
               }}

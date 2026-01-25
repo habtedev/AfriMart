@@ -405,15 +405,7 @@ const OrderDetails: React.FC<OrderDetailsProps> = ({
             <h3 className="font-semibold text-gray-900 dark:text-gray-100 mb-4">Order Actions</h3>
             
             <div className="space-y-3">
-              {onTrackOrder && normalizedOrder.status !== 'cancelled' && (
-                <button
-                  onClick={() => onTrackOrder(normalizedOrder.id)}
-                  className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
-                >
-                  <Truck className="w-4 h-4" />
-                  Track Order
-                </button>
-              )}
+              {/* Track Order button removed */}
 
               {onContactSupport && (
                 <button
@@ -506,16 +498,6 @@ const OrderDetails: React.FC<OrderDetailsProps> = ({
             </div>
           </motion.div>
         </div>
-      </div>
-
-      {/* Footer Note */}
-      <div className="mt-8 text-center text-gray-500 dark:text-gray-400 text-sm">
-        <p>
-          Need help? Contact our support team at{' '}
-          <a href="mailto:support@example.com" className="text-blue-600 hover:underline">
-            support@example.com
-          </a>
-        </p>
       </div>
     </div>
   );

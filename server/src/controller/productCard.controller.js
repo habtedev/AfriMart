@@ -11,6 +11,21 @@ function isCloudinaryUrl(url) {
 exports.createProductCard = async (req, res) => {
   try {
     let data = req.body;
+    // Parse variants if sent as a string (from multipart/form-data)
+    if (typeof data.variants === 'string') {
+      try {
+        data.variants = JSON.parse(data.variants);
+      } catch (e) {
+        return res.status(400).json({ error: 'Invalid variants format. Must be a valid JSON array.' });
+      }
+    }
+    // Parse color and size arrays if sent as string[] (from multipart/form-data)
+    if (typeof data.color === 'string') {
+      data.color = [data.color];
+    }
+    if (typeof data.size === 'string') {
+      data.size = [data.size];
+    }
     // If image was uploaded, set image field to Cloudinary URL
     if (req.file && req.file.path) {
       data = { ...data, image: req.file.path };
@@ -66,7 +81,13 @@ exports.getProductCardById = async (req, res) => {
       category: product.category,
       createdAt: product.createdAt,
       isBestSeller: product.isBestSeller,
-      isTodayDeal: product.isTodayDeal
+      isTodayDeal: product.isTodayDeal,
+      shippingDate: product.shippingDate,
+      shippingPrice: product.shippingPrice,
+      shippingPercent: product.shippingPercent,
+      color: product.color,
+      size: product.size,
+      variants: product.variants || []
     };
     res.json(detailedProduct);
   } catch (err) {
@@ -80,11 +101,27 @@ exports.getProductCardById = async (req, res) => {
 // Update a product card by ID
 exports.updateProductCard = async (req, res) => {
   try {
-    const { image } = req.body;
+    let data = req.body;
+    // Parse variants if sent as a string (from multipart/form-data)
+    if (typeof data.variants === 'string') {
+      try {
+        data.variants = JSON.parse(data.variants);
+      } catch (e) {
+        return res.status(400).json({ error: 'Invalid variants format. Must be a valid JSON array.' });
+      }
+    }
+    // Parse color and size arrays if sent as string[] (from multipart/form-data)
+    if (typeof data.color === 'string') {
+      data.color = [data.color];
+    }
+    if (typeof data.size === 'string') {
+      data.size = [data.size];
+    }
+    const { image } = data;
     if (image && !isCloudinaryUrl(image)) {
       return res.status(400).json({ error: 'Image URL must be a valid Cloudinary URL.' });
     }
-    const product = await ProductCard.findByIdAndUpdate(req.params.id, req.body, { new: true });
+    const product = await ProductCard.findByIdAndUpdate(req.params.id, data, { new: true });
     if (!product) return res.status(404).json({ error: 'Product not found' });
     res.json(product);
   } catch (err) {

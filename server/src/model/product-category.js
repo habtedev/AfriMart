@@ -9,6 +9,9 @@ const productSchema = new mongoose.Schema(
       enum: ['handcraft', 'home-goods', 'electronics', 'best-seller', 'clothing',],
       required: true,
     },
+    color: { type: String, default: "#ffffff" }, // HEX or CSS class
+    shopping: { type: Boolean, default: false },
+    size: { type: String, default: "" }, // Optional size field
   },
   { timestamps: true }
 );

@@ -17,10 +17,14 @@ export function useCarouselImages() {
     const fetchImages = async () => {
       setLoading(true);
       setError(null);
+      const url = `${process.env.NEXT_PUBLIC_API_URL}/api/carousel`;
+      console.debug('[Carousel] Fetching:', url);
       try {
-        const res = await axios.get(`${process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8500/api"}/carousel`);
+        const res = await axios.get(url);
+        console.debug('[Carousel] Response:', res.status, res.data);
         setImages(res.data.images);
       } catch (err: any) {
+        console.error('[Carousel] Fetch error:', err);
         setError(err.message || "Failed to fetch carousel images");
       } finally {
         setLoading(false);

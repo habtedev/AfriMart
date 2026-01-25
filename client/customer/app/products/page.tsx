@@ -8,6 +8,8 @@ export interface ProductCategory {
   title: string;
   image: string;
   category: string;
+  price: number;
+  stock: number;
 }
 
 const ProductsPage: React.FC = () => {
@@ -19,19 +21,40 @@ const ProductsPage: React.FC = () => {
 
   useEffect(() => {
     setLoading(true);
-    let url = `${process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8500"}/product-category-card`;
+    const baseUrl = process.env.NEXT_PUBLIC_API_URL;
+    let url = `${baseUrl.replace(/\/$/, '')}/api/product-category-card`;
     if (category) url += `?category=${encodeURIComponent(category)}`;
-    fetch(url)
-      .then(res => {
-        if (!res.ok) throw new Error("Failed to fetch products");
-        return res.json();
-      })
-      .then(data => {
-        setProducts(data.productCards || []);
-        setError(null);
-      })
-      .catch(err => setError(err.message))
-      .finally(() => setLoading(false));
+    console.debug('[ProductsPage] Fetching (axios):', url);
+    import('axios').then(({ default: axios }) => {
+      axios.get(url)
+        .then(res => {
+          let data = res.data;
+          // If API returns HTML (ngrok error), catch and show error
+          if (typeof data === 'string' && data.startsWith('<!DOCTYPE html>')) {
+            console.error('[ProductsPage] API returned HTML error page:', data);
+            setError('API did not return valid product data. Check backend and ngrok.');
+            setProducts([]);
+            return;
+          }
+          if (!res.status || res.status < 200 || res.status >= 300) {
+            setError(data.message || 'Failed to fetch products');
+            setProducts([]);
+            return;
+          }
+          setProducts(data.productCards || []);
+          setError(null);
+        })
+        .catch(err => {
+          if (err.response && typeof err.response.data === 'string' && err.response.data.startsWith('<!DOCTYPE html>')) {
+            setError('API returned an HTML error page. Check backend and ngrok.');
+            setProducts([]);
+          } else {
+            setError(err.message || 'Failed to fetch products');
+            setProducts([]);
+          }
+        })
+        .finally(() => setLoading(false));
+    });
   }, [category]);
 
   return (

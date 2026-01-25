@@ -3,6 +3,7 @@
 import React, { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { useCart } from "@/context/CartContext";
+import { useAuth } from "@/context/AuthContext";
 import { getUserIdFromToken } from "../../utils/auth";
 import { CheckCircle, ShoppingBag, AlertCircle, Loader2, ExternalLink } from "lucide-react";
 import { motion } from "framer-motion";
@@ -15,8 +16,11 @@ interface CheckoutData {
   total: number;
 }
 
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL;
+
 export default function OrderSuccessPage() {
   const { clearCart } = useCart();
+  const { user } = useAuth();
   const router = useRouter();
   const [status, setStatus] = useState<'loading' | 'success' | 'error'>('loading');
   const [error, setError] = useState<string | null>(null);
@@ -59,60 +63,6 @@ export default function OrderSuccessPage() {
     keys.forEach(key => localStorage.removeItem(key));
   }, []);
 
-  // Create order in backend
-  const createOrder = useCallback(async (checkoutData: CheckoutData) => {
-    const userToken = localStorage.getItem("token");
-    const userId = userToken ? getUserIdFromToken(userToken) : null;
-
-    if (!userId) {
-      console.error("[OrderSuccess] User not authenticated");
-      throw new Error("User not authenticated");
-    }
-
-    const generatedOrderId = `ORDER-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-    setOrderId(generatedOrderId);
-
-    const orderPayload = {
-      orderId: generatedOrderId,
-      userId,
-      items: checkoutData.cartItems.map((item: any) => ({
-        productId: item._id || item.id,
-        quantity: item.quantity,
-        price: item.price,
-        name: item.name || item.title,
-        image: item.image
-      })),
-      shippingAddress: checkoutData.address,
-      totalAmount: checkoutData.total,
-      paymentMethod: checkoutData.paymentMethod,
-      paymentStatus: "paid",
-      orderDate: new Date().toISOString()
-    };
-
-    console.log("[OrderSuccess] Creating order with payload:", orderPayload);
-    const response = await fetch(
-      `${process.env.NEXT_PUBLIC_API_BASE_URL}/order/create`,
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          ...(userToken ? { "Authorization": `Bearer ${userToken}` } : {})
-        },
-        credentials: "include",
-        body: JSON.stringify(orderPayload),
-      }
-    );
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error("[OrderSuccess] Order creation failed:", errorText);
-      throw new Error(`Order creation failed: ${errorText}`);
-    }
-
-    const data = await response.json();
-    console.log("[OrderSuccess] Order created successfully:", data);
-    return data;
-  }, []);
 
   const processOrder = async () => {
     // Check if already processed
@@ -122,31 +72,81 @@ export default function OrderSuccessPage() {
       return;
     }
 
-    const checkoutData = getCheckoutData();
-    if (!checkoutData) {
-      setError("No checkout data found");
-      console.error("[OrderSuccess] No checkout data found in localStorage.");
+    // Try to get pending order from sessionStorage (set before payment)
+    let pendingOrder = null;
+    try {
+      pendingOrder = sessionStorage.getItem('pendingOrder');
+      if (pendingOrder) {
+        pendingOrder = JSON.parse(pendingOrder);
+      }
+    } catch (err) {
+      console.error('[OrderSuccess] Error reading pendingOrder from sessionStorage:', err);
+    }
+
+    if (!pendingOrder) {
+      setError("No pending order data found after payment");
       setStatus('error');
       return;
     }
 
+    // Ensure user email is included in order payload
+    if (user && user.email) {
+      pendingOrder.email = user.email;
+    }
+
+    // Debug: log pendingOrder payload
+    console.log('[OrderSuccess] Pending order payload to backend:', pendingOrder);
+
     try {
-      // Create order in backend
-      await createOrder(checkoutData);
-
-      // Mark as processed only after success
+      // Call backend to create order
+      const res = await fetch(`${API_BASE_URL}/api/order`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        credentials: 'include',
+        body: JSON.stringify(pendingOrder)
+      });
+      if (!res.ok) {
+        let errText = 'Order creation failed';
+        try {
+          const contentType = res.headers.get('content-type');
+          if (contentType && contentType.includes('application/json')) {
+            try {
+              const errJson = await res.json();
+              errText = errJson?.message || JSON.stringify(errJson);
+            } catch (jsonErr) {
+              // If JSON parsing fails, use default error
+            }
+          } else {
+            try {
+              errText = await res.text();
+            } catch (textErr) {
+              // If text parsing fails, use default error
+            }
+          }
+        } catch (e) {
+          // If reading fails, keep default error
+        }
+        console.error('[OrderSuccess] Backend error response:', errText);
+        setError(errText);
+        setStatus('error');
+        return;
+      }
+      const orderData = await res.json();
+      setOrderId(orderData.orderId || orderData._id || null);
+      // Mark as processed for UI only
       localStorage.setItem("order_processed", "true");
-
       // Clear cart
       clearCart();
-
       // Cleanup temporary data
       cleanupCheckoutData();
-
+      // Remove pendingOrder from sessionStorage
+      sessionStorage.removeItem('pendingOrder');
       setStatus('success');
     } catch (err: any) {
-      console.error("[OrderSuccess] Order processing error:", err);
-      setError(err.message || "Failed to process order");
+      console.error("[OrderSuccess] Order creation error:", err);
+      setError(err.message || "Failed to create order after payment");
       setStatus('error');
     }
   };
@@ -154,7 +154,7 @@ export default function OrderSuccessPage() {
   useEffect(() => {
     processOrder();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [clearCart, createOrder, getCheckoutData, cleanupCheckoutData]);
+  }, [clearCart, getCheckoutData, cleanupCheckoutData]);
 
   // Countdown for redirect
   // Countdown effect
