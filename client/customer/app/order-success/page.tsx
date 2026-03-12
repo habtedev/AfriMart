@@ -92,6 +92,9 @@ export default function OrderSuccessPage() {
     // Ensure user email is included in order payload
     if (user && user.email) {
       pendingOrder.email = user.email;
+      if (pendingOrder.shippingAddress) {
+        pendingOrder.shippingAddress.email = user.email;
+      }
     }
 
     // Debug: log pendingOrder payload

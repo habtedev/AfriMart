@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { useAuth } from "@/context/AuthContext";
+import { useRouter } from "next/navigation";
 import { getUserIdFromToken } from "../../../utils/auth";
 import { useCart } from "@/context/CartContext";
 import { Check, CreditCard, Smartphone, Wallet, MapPin, Package, Shield } from "lucide-react";
@@ -70,13 +71,19 @@ interface ValidationErrors {
 }
 
 export default function ModernCheckout2025() {
-    // Clear order_processed when starting a new checkout/payment
-    useEffect(() => {
-      if (typeof window !== 'undefined') {
-        localStorage.removeItem('order_processed');
-      }
-    }, []);
   const { user } = useAuth();
+  const router = useRouter();
+  useEffect(() => {
+    if (!user || !user.email) {
+      router.replace('/auth/login');
+    }
+  }, [user, router]);
+  // Clear order_processed when starting a new checkout/payment
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('order_processed');
+    }
+  }, []);
   const { items: cartItems, clearCart } = useCart();
   
   // Calculate totals from real cart
@@ -297,7 +304,10 @@ export default function ModernCheckout2025() {
       tx_ref: txRef,
       userId,
       items: validCartItems,
-      shippingAddress: address,
+      shippingAddress: {
+        ...address,
+        email: user && user.email ? user.email : '',
+      },
       totalAmount: total
     };
     const cacheRes = await fetch(`${API_BASE_URL}/api/order-cache`, {
@@ -367,7 +377,10 @@ export default function ModernCheckout2025() {
         tx_ref: txRef,
         userId,
         items: validCartItems,
-        shippingAddress: address,
+        shippingAddress: {
+          ...address,
+          email: address.email || user?.email || '',
+        },
         totalAmount: total
       }));
       window.location.href = data.data.checkout_url;
@@ -437,6 +450,7 @@ export default function ModernCheckout2025() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4">
               {[
                 { key: "fullName", label: "Full Name", type: "text" },
+                // Email field removed; Gmail will be displayed below
                 { key: "phone", label: "Phone Number", type: "tel" },
                 { key: "street", label: "Street Address", type: "text" },
                 { key: "city", label: "City", type: "text" },
@@ -468,6 +482,23 @@ export default function ModernCheckout2025() {
                   )}
                 </div>
               ))}
+
+              {/* Editable Gmail input for shopping */}
+              <div className="space-y-1 md:space-y-2">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                  Gmail (used for shopping & notifications)
+                </label>
+                <input
+                  type="email"
+                  name="email"
+                  value={address.email || user?.email || ""}
+                  onChange={e => setAddress(prev => ({ ...prev, email: e.target.value }))}
+                  placeholder="Enter your Gmail address"
+                  className="w-full px-3 md:px-4 py-2 md:py-3 rounded-lg md:rounded-xl border border-gray-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-gray-900 dark:text-gray-100 text-sm md:text-base"
+                  required
+                />
+                <p className="text-xs text-gray-500 dark:text-gray-400">This Gmail will be used for order notifications.</p>
+              </div>
             </div>
             
             <div className="space-y-1 md:space-y-2">

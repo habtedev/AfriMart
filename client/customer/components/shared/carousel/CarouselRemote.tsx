@@ -7,8 +7,15 @@ export function CarouselRemote({ overlay }: { overlay?: React.ReactNode }) {
 
 
   if (loading) return <div className="text-center py-8">Loading carousel...</div>;
-  if (error) return <div className="text-center text-red-500 py-8">{error}</div>;
-  if (!images || !images.length) return <div className="text-center py-8">No carousel images found.</div>;
+  if (error)
+    return (
+      <div className="text-center text-red-500 py-8">
+        Sorry, we couldn’t load the carousel. Please try again later.<br />
+        {/* Developer info: {error} */}
+      </div>
+    );
+  if (!images || !images.length)
+    return <div className="text-center py-8">No carousel images found.</div>;
 
   return <Carousel images={images} overlay={overlay} />;
 }

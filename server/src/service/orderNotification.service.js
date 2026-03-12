@@ -544,135 +544,298 @@ ${'═'.repeat(30)}
     `;
   }
 
-  const html = `
+ const html = `
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Order Status Update #${order.tx_ref}</title>
-  <style>
-    body { font-family: 'Segoe UI', Arial, sans-serif; background: #f4f7fa; margin: 0; padding: 0; }
-    .email-container { max-width: 620px; margin: 32px auto; background: #fff; border-radius: 22px; box-shadow: 0 10px 36px rgba(0,0,0,0.13); overflow: hidden; border: 1.5px solid #e3eaf2; }
-    .header.status-header {
-      background: linear-gradient(90deg, ${config.bgColor} 0%, ${config.color} 100%);
-      color: #111 !important;
-      padding: 38px 28px 28px 28px;
-      text-align: center;
-      position: relative;
-      border-bottom-left-radius: 32px 18px;
-      border-bottom-right-radius: 32px 18px;
-      box-shadow: 0 4px 24px rgba(0,0,0,0.10);
-      border-left: 8px solid ${config.color};
-    }
-    .confirmation-icon { font-size: 54px; margin-bottom: 10px; filter: drop-shadow(0 2px 8px rgba(0,0,0,0.10)); }
-    .header h1 { font-size: 32px; font-weight: 800; margin-bottom: 10px; letter-spacing: -0.5px; }
-    .header p { font-size: 18px; opacity: 0.97; margin-bottom: 0; }
-    .order-summary { background: #f8fafc; border-radius: 16px; padding: 24px; margin: 28px 0; border: 1.5px solid #e3eaf2; box-shadow: 0 2px 8px rgba(102,126,234,0.07); }
-    .order-id { display: flex; align-items: center; gap: 12px; font-size: 20px; font-weight: 700; color: #667eea; margin-bottom: 12px; }
-    .order-meta { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; margin-top: 14px; }
-    .meta-item { display: flex; flex-direction: column; gap: 4px; }
-    .meta-label { font-size: 13px; color: #6c757d; text-transform: uppercase; letter-spacing: 0.5px; }
-    .meta-value { font-size: 16px; font-weight: 700; color: #333; }
-    .total-amount { background: linear-gradient(90deg, #48bb78 0%, #38a169 100%); color: #fff; padding: 14px; border-radius: 10px; text-align: center; font-size: 24px; font-weight: 800; margin-top: 18px; box-shadow: 0 2px 8px rgba(72,187,120,0.13); letter-spacing: 1px; }
-    .section-title { font-size: 20px; font-weight: 700; color: #333; margin: 28px 0 14px 0; padding-bottom: 10px; border-bottom: 2px solid #e9ecef; display: flex; align-items: center; gap: 10px; }
-    .items-container { background: #fff; border-radius: 10px; border: 1.5px solid #e9ecef; }
-    .item-row { display: flex; align-items: center; gap: 18px; padding: 14px 0; border-bottom: 1.5px solid #e9ecef; }
-    .item-row:last-child { border-bottom: none; }
-    .item-img { width: 52px; height: 52px; border-radius: 10px; object-fit: cover; box-shadow: 0 1px 4px rgba(0,0,0,0.09); margin-right: 10px; }
-    .item-info { flex: 1; display: flex; flex-direction: column; }
-    .item-name { font-weight: 600; font-size: 16px; color: #333; }
-    .item-details { font-size: 14px; color: #6c757d; }
-    .item-total { font-weight: 700; color: #38a169; font-size: 15px; }
-    .shipping-info { margin: 28px 0; }
-    .address-card { display: flex; gap: 18px; background: #fff; padding: 18px; border-radius: 10px; border: 1.5px solid #e9ecef; box-shadow: 0 1px 6px rgba(0,0,0,0.06); }
-    .address-icon { font-size: 24px; color: #667eea; }
-    .address-details { flex: 1; }
-    .customer-name { font-weight: 700; font-size: 17px; margin-bottom: 7px; color: #333; }
-    .address-details p { margin-bottom: 5px; color: #6c757d; }
-    .phone { color: #667eea; font-weight: 600; }
-    .next-steps { background: linear-gradient(90deg, #fef3c7 0%, #fde68a 100%); border-radius: 10px; padding: 18px; margin: 28px 0; border-left: 5px solid #f59e0b; box-shadow: 0 1px 6px rgba(253,230,138,0.10); }
-    .next-steps h3 { color: #92400e; margin-bottom: 10px; }
-    .track-btn { display: inline-block; background: linear-gradient(90deg, #667eea 0%, #764ba2 100%); color: #fff; padding: 14px 32px; border-radius: 26px; font-size: 17px; font-weight: 700; text-decoration: none; margin: 20px 0; box-shadow: 0 2px 8px rgba(102,126,234,0.13); transition: background 0.2s; }
-    .track-btn:hover { background: linear-gradient(90deg, #764ba2 0%, #667eea 100%); }
-    .footer { background: #f8f9fa; padding: 28px; text-align: center; border-top: 1.5px solid #e9ecef; }
-    .support-info { display: flex; justify-content: center; gap: 28px; margin: 18px 0; }
-    .support-item { display: flex; align-items: center; gap: 10px; color: #6c757d; }
-    .company-name { color: #667eea; font-weight: 700; font-size: 20px; margin: 10px 0; }
-    .copyright { color: #6c757d; font-size: 14px; margin-top: 14px; }
-    /* Timeline styles */
-    .timeline { margin: 36px 0; }
-    .timeline-container { position: relative; padding-left: 38px; }
-    .timeline-container::before { content: ''; position: absolute; left: 18px; top: 0; bottom: 0; width: 3px; background: #e5e7eb; border-radius: 2px; }
-    .timeline-item { position: relative; margin-bottom: 30px; }
-    .timeline-item.current .timeline-marker { background: ${config.color}; border-color: ${config.color}; box-shadow: 0 0 0 6px ${config.color}22; }
-    .timeline-marker { position: absolute; left: -32px; top: 7px; width: 20px; height: 20px; border-radius: 50%; border: 3px solid #9ca3af; background: #fff; z-index: 1; transition: background 0.2s, border-color 0.2s; }
-    .timeline-content { background: #f9fafb; padding: 18px; border-radius: 10px; border: 1.5px solid #e5e7eb; box-shadow: 0 2px 6px rgba(0, 0, 0, 0.06); }
-    .timeline-date { font-weight: 700; color: ${config.color}; margin-bottom: 7px; font-size: 15px; }
-    .timeline-status { font-size: 17px; font-weight: 600; margin-bottom: 7px; color: #333; }
-    .timeline-note { color: #6b7280; font-size: 15px; margin-top: 7px; }
-    @media (max-width: 650px) { .order-meta { grid-template-columns: 1fr; } .address-card { flex-direction: column; gap: 10px; } .support-info { flex-direction: column; gap: 12px; } .header h1 { font-size: 22px; } .email-container { border-radius: 12px; } }
-  </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+<title>Order Update</title>
+
+<style>
+
+body{
+margin:0;
+background:#f3f6fb;
+font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;
+}
+
+.container{
+max-width:650px;
+margin:40px auto;
+background:#ffffff;
+border-radius:20px;
+overflow:hidden;
+box-shadow:0 20px 45px rgba(0,0,0,0.08);
+border:1px solid #e6edf5;
+}
+
+.hero{
+background:linear-gradient(135deg,${config.color},${config.bgColor});
+color:white;
+padding:50px 30px;
+text-align:center;
+}
+
+.hero-icon{
+font-size:56px;
+margin-bottom:12px;
+}
+
+.hero h1{
+margin:0;
+font-size:30px;
+font-weight:700;
+}
+
+.hero p{
+margin-top:10px;
+font-size:16px;
+opacity:.9;
+}
+
+.content{
+padding:32px;
+}
+
+.card{
+background:#f8fafc;
+border-radius:14px;
+padding:22px;
+border:1px solid #e8edf4;
+margin-bottom:24px;
+}
+
+.order-id{
+font-size:20px;
+font-weight:700;
+color:#111827;
+margin-bottom:12px;
+}
+
+.meta{
+display:grid;
+grid-template-columns:1fr 1fr;
+gap:14px;
+}
+
+.meta-label{
+font-size:12px;
+color:#6b7280;
+text-transform:uppercase;
+}
+
+.meta-value{
+font-size:15px;
+font-weight:600;
+color:#111827;
+}
+
+.status-badge{
+display:inline-block;
+padding:8px 14px;
+border-radius:30px;
+font-weight:600;
+font-size:13px;
+background:${config.color}20;
+color:${config.color};
+}
+
+.total{
+margin-top:18px;
+background:linear-gradient(135deg,#22c55e,#16a34a);
+color:white;
+padding:16px;
+text-align:center;
+border-radius:10px;
+font-weight:700;
+font-size:22px;
+}
+
+.section-title{
+font-weight:700;
+font-size:18px;
+margin:26px 0 12px 0;
+color:#111827;
+}
+
+.item{
+display:flex;
+align-items:center;
+padding:14px 0;
+border-bottom:1px solid #edf1f6;
+}
+
+.item:last-child{
+border-bottom:none;
+}
+
+.item img{
+width:48px;
+height:48px;
+border-radius:10px;
+margin-right:14px;
+object-fit:cover;
+}
+
+.item-name{
+font-weight:600;
+color:#111827;
+}
+
+.item-meta{
+font-size:13px;
+color:#6b7280;
+}
+
+.item-price{
+margin-left:auto;
+font-weight:600;
+color:${config.color};
+}
+
+.timeline{
+margin-top:10px;
+border-left:3px solid #e5e7eb;
+padding-left:18px;
+}
+
+.step{
+margin-bottom:18px;
+}
+
+.step strong{
+color:${config.color};
+display:block;
+}
+
+.note{
+font-size:14px;
+color:#6b7280;
+}
+
+.info-box{
+background:#fff7ed;
+border-left:4px solid #f59e0b;
+padding:16px;
+border-radius:8px;
+margin-top:20px;
+}
+
+.footer{
+background:#f9fafc;
+text-align:center;
+padding:28px;
+border-top:1px solid #edf1f6;
+}
+
+.support{
+color:#6b7280;
+font-size:14px;
+}
+
+.company{
+font-weight:700;
+margin-top:8px;
+}
+
+.copy{
+font-size:13px;
+color:#9ca3af;
+margin-top:6px;
+}
+
+@media(max-width:640px){
+
+.container{
+margin:12px;
+}
+
+.meta{
+grid-template-columns:1fr;
+}
+
+}
+
+</style>
 </head>
+
 <body>
-  <div class="email-container">
-    <div class="header status-header" style="background: ${config.bgColor};">
-      <div class="confirmation-icon">${config.icon}</div>
-      <h1>${config.title}</h1>
-      <p>${config.message}</p>
-    </div>
-    
-    <div class="content">
-      <div class="order-summary">
-        <div class="order-id">
-          <span>📋</span>
-          <span>Order #${order.tx_ref}</span>
-        </div>
-        
-        <div class="content">
-          <div class="order-summary">
-            <div class="order-id">
-              <span>📋</span>
-              <span>Order #${order.tx_ref}</span>
-            </div>
-            <div class="order-meta">
-              <div class="meta-item">
-                <span class="meta-label">Order Date</span>
-                <span class="meta-value">${orderDate}</span>
-              </div>
-              <div class="meta-item">
-                <span class="meta-label">Current Status</span>
-                <span class="meta-value" style="color: ${config.color};">${config.icon} ${status.charAt(0).toUpperCase() + status.slice(1)}</span>
-              </div>
-            </div>
-            <div class="total-amount" style="background: ${config.color};">
-              ${orderTotal}
-            </div>
-          </div>
-          ${itemsHtml}
-          ${timelineHtml}
-          <div class="next-steps" style="border-left-color: ${config.color};">
-            <h3>ℹ️ Additional Information</h3>
-            <p>${config.message} If you have any questions about this update, please contact our support team.</p>
-          </div>
-        </div>
-      <div class="support-info">
-        <div class="support-item">
-          <span>📧</span>
-          <span>${process.env.SUPPORT_EMAIL || 'support@example.com'}</span>
-        </div>
-        <div class="support-item">
-          <span>📞</span>
-          <span>${process.env.SUPPORT_PHONE || 'Available 24/7'}</span>
-        </div>
-      </div>
-      <p class="company-name">${process.env.COMPANY_NAME}</p>
-      <p class="copyright">© ${new Date().getFullYear()} ${process.env.COMPANY_NAME}. All rights reserved.</p>
-    </div>
-  </div>
+
+<div class="container">
+
+<div class="hero">
+<div class="hero-icon">${config.icon}</div>
+<h1>${config.title}</h1>
+<p>${config.message}</p>
+</div>
+
+<div class="content">
+
+<div class="card">
+
+<div class="order-id">Order #${order.tx_ref}</div>
+
+<div class="meta">
+
+<div>
+<div class="meta-label">Order Date</div>
+<div class="meta-value">${orderDate}</div>
+</div>
+
+<div>
+<div class="meta-label">Status</div>
+<div class="meta-value">
+<span class="status-badge">${status}</span>
+</div>
+</div>
+
+</div>
+
+<div class="total">
+${orderTotal}
+</div>
+
+</div>
+
+${itemsHtml}
+
+<div class="section-title">Order Timeline</div>
+
+<div class="timeline">
+${timelineHtml}
+</div>
+
+<div class="info-box">
+${config.message}. If you have any questions please contact support.
+</div>
+
+</div>
+
+<div class="footer">
+
+<div class="support">
+📧 ${process.env.SUPPORT_EMAIL || 'support@example.com'}  
+<br>
+📞 ${process.env.SUPPORT_PHONE || '24/7 Support'}
+</div>
+
+<div class="company">
+${process.env.COMPANY_NAME}
+</div>
+
+<div class="copy">
+© ${new Date().getFullYear()} ${process.env.COMPANY_NAME}
+</div>
+
+</div>
+
+</div>
+
 </body>
 </html>
-  `;
+`;
   
   return {
     subject: `${config.icon} Order ${status.charAt(0).toUpperCase() + status.slice(1)}! #${order.tx_ref}`,

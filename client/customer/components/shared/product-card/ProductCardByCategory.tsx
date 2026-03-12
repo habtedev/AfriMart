@@ -156,14 +156,21 @@ export default function ProductCardByCategory() {
 
   if (error) {
     return (
-      <div style={{ color: 'red', whiteSpace: 'pre-wrap' }}>
-        <strong>Error:</strong> {error}
-        <br />
-        <span>
-          Please ensure the backend is running, the API URL is correct in your .env, and the API endpoint is accessible.<br />
-          Try opening <code>{process.env.NEXT_PUBLIC_API_URL}/api/product-cards</code> directly in your browser.<br />
-          Check the browser console for more details.
-        </span>
+      <div
+        className="mx-auto mt-12 max-w-md rounded-xl bg-white shadow-lg border border-red-200 p-6 flex flex-col items-center text-center"
+        style={{ color: '#b91c1c' }}
+      >
+        <svg width="48" height="48" fill="none" viewBox="0 0 24 24" stroke="#b91c1c" className="mb-3">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+        </svg>
+        <div className="font-bold text-lg mb-2">Sorry, we couldn’t load products.</div>
+        <div className="text-sm text-red-700 mb-3">Please refresh or try again later.</div>
+        {/* Developer info:
+        Error: {error}
+        Please ensure the backend is running, the API URL is correct in your .env, and the API endpoint is accessible.
+        Try opening {process.env.NEXT_PUBLIC_API_URL}/api/product-cards directly in your browser.
+        Check the browser console for more details.
+        */}
       </div>
     );
   }
