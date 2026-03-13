@@ -100,6 +100,10 @@ app.use("/api/product-category-card", productCategoryCardRoutes);
 // Product card API
 app.use("/api/product-cards", productCardRoutes);
 
+// Customer Review API
+const customerReviewRoutes = require("./router/customerReview.routes");
+app.use("/api/customer-reviews", customerReviewRoutes);
+
 // Shipping address API
 app.use("/api/shipping", shippingRoutes);
 

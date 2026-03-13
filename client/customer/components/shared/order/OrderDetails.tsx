@@ -1,506 +1,419 @@
-import React from 'react';
-import { 
-  Package, 
-  Calendar, 
-  MapPin, 
-  CreditCard, 
+import React, { useState, useEffect } from "react";
+import { useAuth } from "@/context/AuthContext";
+import {
+  Package,
+  MapPin,
+  CreditCard,
   Truck,
   CheckCircle,
   Clock,
   AlertCircle,
   ExternalLink,
   ShoppingBag,
-  DollarSign,
-  Hash,
-  User,
-  Phone,
-  Mail,
-  Home,
-  ChevronRight
-} from 'lucide-react';
-import { Order, OrderItem } from './OrderList';
-import { motion } from 'framer-motion';
+  ChevronLeft,
+  FileText,
+  HeadphonesIcon,
+  Star,
+  Download,
+  Calendar,
+  MoreVertical,
+  ArrowRight
+} from "lucide-react";
 
-interface OrderDetailsProps {
-  order: Order;
-  onBack?: () => void;
-  onTrackOrder?: (orderId: string) => void;
-  onContactSupport?: () => void;
-}
+/* ---------------- TYPES & CONFIG ---------------- */
+
+const STATUS_STEPS = ["pending", "processing", "shipped", "delivered"];
 
 const STATUS_CONFIG = {
-  pending: {
-    color: 'text-yellow-600',
-    bgColor: 'bg-yellow-50',
-    borderColor: 'border-yellow-200',
-    icon: Clock,
-    label: 'Pending',
-    description: 'Your order is being processed'
-  },
-  processing: {
-    color: 'text-blue-600',
-    bgColor: 'bg-blue-50',
-    borderColor: 'border-blue-200',
-    icon: Package,
-    label: 'Processing',
-    description: 'Preparing your order'
-  },
-  shipped: {
-    color: 'text-purple-600',
-    bgColor: 'bg-purple-50',
-    borderColor: 'border-purple-200',
-    icon: Truck,
-    label: 'Shipped',
-    description: 'Your order is on the way'
-  },
-  delivered: {
-    color: 'text-green-600',
-    bgColor: 'bg-green-50',
-    borderColor: 'border-green-200',
-    icon: CheckCircle,
-    label: 'Delivered',
-    description: 'Order delivered successfully'
-  },
-  cancelled: {
-    color: 'text-red-600',
-    bgColor: 'bg-red-50',
-    borderColor: 'border-red-200',
-    icon: AlertCircle,
-    label: 'Cancelled',
-    description: 'Order has been cancelled'
-  }
-} as const;
+  pending: { color: "text-amber-600", bg: "bg-amber-50", border: "border-amber-100", icon: Clock, label: "Pending", description: "Order is being verified" },
+  processing: { color: "text-blue-600", bg: "bg-blue-50", border: "border-blue-100", icon: Package, label: "Processing", description: "Preparing your items" },
+  shipped: { color: "text-indigo-600", bg: "bg-indigo-50", border: "border-indigo-100", icon: Truck, label: "Shipped", description: "On the way to you" },
+  delivered: { color: "text-emerald-600", bg: "bg-emerald-50", border: "border-emerald-100", icon: CheckCircle, label: "Delivered", description: "Successfully arrived" },
+  cancelled: { color: "text-rose-600", bg: "bg-rose-50", border: "border-rose-100", icon: AlertCircle, label: "Cancelled", description: "Order was cancelled" },
+};
 
-const PAYMENT_STATUS_CONFIG = {
-  paid: {
-    color: 'text-green-600',
-    bgColor: 'bg-green-50',
-    borderColor: 'border-green-200',
-    label: 'Paid'
-  },
-  pending: {
-    color: 'text-yellow-600',
-    bgColor: 'bg-yellow-50',
-    borderColor: 'border-yellow-200',
-    label: 'Pending'
-  },
-  failed: {
-    color: 'text-red-600',
-    bgColor: 'bg-red-50',
-    borderColor: 'border-red-200',
-    label: 'Failed'
-  }
-} as const;
+/* ---------------- SUB-COMPONENT: OPEN COMMENT ---------------- */
 
-const OrderDetails: React.FC<OrderDetailsProps> = ({ 
-  order, 
-  onBack,
-  onTrackOrder,
-  onContactSupport 
-}) => {
-  // Normalize order data
-  const normalizedOrder: Order = {
-    ...order,
-    id: order.id || order._id || order.orderId || 'N/A',
-    date: order.date || order.createdAt || 'N/A',
-    status: order.status || order.paymentStatus || 'pending',
-    total: order.total ?? order.totalAmount ?? 0,
-    items: Array.isArray(order.items) ? order.items : []
-  };
+const OpenComment = ({ onSubmit, productId, userId }) => {
+  const [rating, setRating] = useState(0);
+  const [comment, setComment] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
 
-  const statusKey = normalizedOrder.status.toLowerCase() as keyof typeof STATUS_CONFIG;
-  const statusConfig = STATUS_CONFIG[statusKey] || STATUS_CONFIG.pending;
-  const StatusIcon = statusConfig.icon;
-
-  const paymentStatus = normalizedOrder.paymentStatus?.toLowerCase() as keyof typeof PAYMENT_STATUS_CONFIG || 'pending';
-  const paymentConfig = PAYMENT_STATUS_CONFIG[paymentStatus] || PAYMENT_STATUS_CONFIG.pending;
-
-  // Format date
-  const formatDate = (dateString: string) => {
+  const handleSubmit = async () => {
+    if (rating === 0 || !comment) return;
+    setLoading(true);
+    setError("");
     try {
-      const date = new Date(dateString);
-      return {
-        full: date.toLocaleDateString('en-US', {
-          weekday: 'long',
-          year: 'numeric',
-          month: 'long',
-          day: 'numeric',
-          hour: '2-digit',
-          minute: '2-digit'
+      const baseUrl = process.env.NEXT_PUBLIC_API_URL || "";
+      const res = await fetch(`${baseUrl}/api/customer-reviews`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          productId,
+          userId,
+          rating,
+          comment,
         }),
-        short: date.toLocaleDateString('en-US', {
-          month: 'short',
-          day: 'numeric',
-          year: 'numeric'
-        }),
-        time: date.toLocaleTimeString('en-US', {
-          hour: '2-digit',
-          minute: '2-digit'
-        })
-      };
-    } catch {
-      return { full: dateString, short: dateString.slice(0, 10), time: '' };
+      });
+      if (!res.ok) throw new Error("Failed to submit review");
+      onSubmit();
+      setComment("");
+      setRating(0);
+    } catch (err) {
+      setError("Could not save your review. Please try again.");
+    } finally {
+      setLoading(false);
     }
   };
 
-  const formattedDate = formatDate(normalizedOrder.date);
-
-  // Calculate totals
-  const subtotal = normalizedOrder.items.reduce(
-    (sum, item) => sum + (item.price * item.quantity), 
-    0
-  );
-  const shipping = normalizedOrder.shippingFee || 0;
-  const tax = normalizedOrder.tax || subtotal * 0.08;
-  const total = normalizedOrder.total || subtotal + shipping + tax;
+  // console.log('Review payload:', { productId, userId, rating, comment });
 
   return (
-    <div className="max-w-6xl mx-auto p-4 md:p-6">
-      {/* Header with Back Button */}
-      {onBack && (
-        <button
-          onClick={onBack}
-          className="flex items-center gap-2 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 mb-6 transition-colors group"
-        >
-          <ChevronRight className="w-4 h-4 rotate-180 group-hover:-translate-x-1 transition-transform" />
-          Back to Orders
-        </button>
-      )}
-
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Left Column - Order Info */}
-        <div className="lg:col-span-2 space-y-6">
-          {/* Order Header */}
-          <motion.div 
-            initial={{ opacity: 0, y: -20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="bg-white dark:bg-zinc-900 rounded-2xl shadow-lg p-6 border border-gray-200 dark:border-zinc-700"
+    <div className="flex flex-col gap-4">
+      <div className="flex gap-2">
+        {[1, 2, 3, 4, 5].map((s) => (
+          <button 
+            key={s} 
+            onClick={() => setRating(s)}
+            className={`transition-all ${rating >= s ? 'text-amber-400 scale-110' : 'text-zinc-300'}`}
+            disabled={loading}
           >
-            <div className="flex flex-col md:flex-row md:items-start justify-between gap-4 mb-6">
-              <div>
-                <div className="flex items-center gap-3 mb-2">
-                  <div className="p-2 rounded-lg bg-blue-50 dark:bg-blue-900/20 text-blue-600">
-                    <ShoppingBag className="w-6 h-6" />
-                  </div>
-                  <div>
-                    <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
-                      Order #{normalizedOrder.id.slice(-8).toUpperCase()}
-                    </h1>
-                    <p className="text-gray-600 dark:text-gray-400">
-                      Placed on {formattedDate.full}
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              <div className="flex flex-col gap-2">
-                <div className={`inline-flex items-center gap-2 px-4 py-2 rounded-full ${statusConfig.bgColor} ${statusConfig.borderColor} border`}>
-                  <StatusIcon className={`w-4 h-4 ${statusConfig.color}`} />
-                  <span className={`font-semibold ${statusConfig.color}`}>
-                    {statusConfig.label}
-                  </span>
-                </div>
-                <div className={`inline-flex items-center gap-2 px-4 py-2 rounded-full ${paymentConfig.bgColor} ${paymentConfig.borderColor} border`}>
-                  <CreditCard className={`w-4 h-4 ${paymentConfig.color}`} />
-                  <span className={`font-semibold ${paymentConfig.color}`}>
-                    Payment {paymentConfig.label}
-                  </span>
-                </div>
-              </div>
-            </div>
-
-            {/* Status Description */}
-            <div className={`p-4 rounded-lg ${statusConfig.bgColor} ${statusConfig.borderColor} border`}>
-              <div className="flex items-center gap-3">
-                <StatusIcon className={`w-5 h-5 ${statusConfig.color}`} />
-                <div>
-                  <p className={`font-semibold ${statusConfig.color}`}>
-                    {statusConfig.label}
-                  </p>
-                  <p className="text-gray-600 dark:text-gray-400 text-sm">
-                    {statusConfig.description}
-                  </p>
-                </div>
-              </div>
-            </div>
-          </motion.div>
-
-          {/* Order Items */}
-          <motion.div 
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.1 }}
-            className="bg-white dark:bg-zinc-900 rounded-2xl shadow-lg p-6 border border-gray-200 dark:border-zinc-700"
-          >
-            <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100 mb-6 flex items-center gap-2">
-              <Package className="w-5 h-5" />
-              Order Items ({normalizedOrder.items.length})
-            </h2>
-
-            <div className="space-y-4">
-              {normalizedOrder.items.length > 0 ? (
-                normalizedOrder.items.map((item, index) => {
-                  const productName = item.title || item.name || item.product?.title || item.product?.name || 'Product';
-                  const productImage = item.image || item.product?.image;
-                  
-                  return (
-                    <div
-                      key={item.productId || index}
-                      className="flex items-center gap-4 p-4 rounded-lg border border-gray-200 dark:border-zinc-700 hover:bg-gray-50 dark:hover:bg-zinc-800 transition-colors"
-                    >
-                      {productImage && (
-                        <div className="relative flex-shrink-0">
-                          <img
-                            src={productImage}
-                            alt={productName}
-                            className="w-20 h-20 object-cover rounded-lg"
-                            onError={(e) => {
-                              (e.target as HTMLImageElement).style.display = 'none';
-                            }}
-                          />
-                        </div>
-                      )}
-                      <div className="flex-grow">
-                        <div className="flex flex-col md:flex-row md:items-center justify-between gap-2">
-                          <div>
-                            <h3 className="font-semibold text-gray-900 dark:text-gray-100">
-                              {productName}
-                            </h3>
-                            <div className="flex items-center gap-4 mt-1 text-sm text-gray-600 dark:text-gray-400">
-                              <span>SKU: {item.productId?.slice(-6) || 'N/A'}</span>
-                              <span>•</span>
-                              <span>Quantity: {item.quantity}</span>
-                            </div>
-                          </div>
-                          <div className="text-right">
-                            <div className="text-lg font-semibold text-gray-900 dark:text-gray-100">
-                              ETB {(item.price * item.quantity).toFixed(2)}
-                            </div>
-                            <div className="text-sm text-gray-500">
-                              ETB {typeof item.price === 'number' ? item.price.toFixed(2) : '0.00'} each
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })
-              ) : (
-                <div className="text-center py-8 text-gray-500">
-                  <Package className="w-12 h-12 mx-auto mb-3 opacity-50" />
-                  <p>No items found in this order</p>
-                </div>
-              )}
-            </div>
-          </motion.div>
-
-          {/* Shipping Information */}
-          {normalizedOrder.shippingAddress && (
-            <motion.div 
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.2 }}
-              className="bg-white dark:bg-zinc-900 rounded-2xl shadow-lg p-6 border border-gray-200 dark:border-zinc-700"
-            >
-              <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100 mb-6 flex items-center gap-2">
-                <MapPin className="w-5 h-5" />
-                Shipping Information
-              </h2>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="space-y-4">
-                  <div>
-                    <div className="text-sm text-gray-600 dark:text-gray-400 mb-1">Recipient</div>
-                    <div className="flex items-center gap-2">
-                      <User className="w-4 h-4 text-gray-400" />
-                      <span className="font-semibold">{normalizedOrder.shippingAddress.fullName}</span>
-                    </div>
-                  </div>
-                  <div>
-                    <div className="text-sm text-gray-600 dark:text-gray-400 mb-1">Phone</div>
-                    <div className="flex items-center gap-2">
-                      <Phone className="w-4 h-4 text-gray-400" />
-                      <span className="font-medium">{normalizedOrder.shippingAddress.phone}</span>
-                    </div>
-                  </div>
-                </div>
-                <div>
-                  <div className="text-sm text-gray-600 dark:text-gray-400 mb-1">Shipping Address</div>
-                  <div className="flex items-start gap-2 p-4 bg-gray-50 dark:bg-zinc-800 rounded-lg">
-                    <Home className="w-4 h-4 text-gray-400 mt-1 flex-shrink-0" />
-                    <div>
-                      <p className="font-medium">{normalizedOrder.shippingAddress.street}</p>
-                      <p className="text-gray-600 dark:text-gray-400">
-                        {normalizedOrder.shippingAddress.city}, {normalizedOrder.shippingAddress.state}
-                      </p>
-                      <p className="text-gray-600 dark:text-gray-400">
-                        {normalizedOrder.shippingAddress.country}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </motion.div>
-          )}
-        </div>
-
-        {/* Right Column - Order Summary & Actions */}
-        <div className="space-y-6">
-          {/* Order Summary */}
-          <motion.div 
-            initial={{ opacity: 0, x: 20 }}
-            animate={{ opacity: 1, x: 0 }}
-            className="bg-white dark:bg-zinc-900 rounded-2xl shadow-lg p-6 border border-gray-200 dark:border-zinc-700"
-          >
-            <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100 mb-6 flex items-center gap-2">
-              <DollarSign className="w-5 h-5" />
-              Order Summary
-            </h2>
-
-            <div className="space-y-3">
-              <div className="flex justify-between">
-                <span className="text-gray-600 dark:text-gray-400">Subtotal</span>
-                <span className="font-medium">ETB {subtotal.toFixed(2)}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-gray-600 dark:text-gray-400">Shipping</span>
-                <span className="font-medium">ETB {shipping.toFixed(2)}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-gray-600 dark:text-gray-400">Tax</span>
-                <span className="font-medium">ETB {tax.toFixed(2)}</span>
-              </div>
-              <div className="border-t border-gray-200 dark:border-zinc-700 pt-3">
-                <div className="flex justify-between text-lg font-bold">
-                  <span>Total</span>
-                  <span className="text-blue-600 dark:text-blue-400">ETB {total.toFixed(2)}</span>
-                </div>
-              </div>
-            </div>
-
-            {/* Additional Info */}
-            <div className="mt-6 pt-6 border-t border-gray-200 dark:border-zinc-700 space-y-3">
-              <div className="flex items-center justify-between">
-                <span className="text-gray-600 dark:text-gray-400">Order Number</span>
-                <span className="font-mono font-semibold">{normalizedOrder.id.slice(-8).toUpperCase()}</span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-gray-600 dark:text-gray-400">Order Date</span>
-                <span className="font-medium">{formattedDate.short}</span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-gray-600 dark:text-gray-400">Order Time</span>
-                <span className="font-medium">{formattedDate.time}</span>
-              </div>
-            </div>
-          </motion.div>
-
-          {/* Action Buttons */}
-          <motion.div 
-            initial={{ opacity: 0, x: 20 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ delay: 0.1 }}
-            className="bg-white dark:bg-zinc-900 rounded-2xl shadow-lg p-6 border border-gray-200 dark:border-zinc-700"
-          >
-            <h3 className="font-semibold text-gray-900 dark:text-gray-100 mb-4">Order Actions</h3>
-            
-            <div className="space-y-3">
-              {/* Track Order button removed */}
-
-              {onContactSupport && (
-                <button
-                  onClick={onContactSupport}
-                  className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-gray-100 dark:bg-zinc-800 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-zinc-700 transition-colors font-medium"
-                >
-                  <Phone className="w-4 h-4" />
-                  Contact Support
-                </button>
-              )}
-
-              <button
-                onClick={() => window.print()}
-                className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-gray-100 dark:bg-zinc-800 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-zinc-700 transition-colors font-medium"
-              >
-                <ExternalLink className="w-4 h-4" />
-                Print Invoice
-              </button>
-
-              {normalizedOrder.status === 'delivered' && (
-                <button
-                  onClick={() => {
-                    // Handle reorder logic
-                    alert('Reorder functionality would be implemented here');
-                  }}
-                  className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-medium"
-                >
-                  <ShoppingBag className="w-4 h-4" />
-                  Reorder Items
-                </button>
-              )}
-            </div>
-          </motion.div>
-
-          {/* Timeline */}
-          <motion.div 
-            initial={{ opacity: 0, x: 20 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ delay: 0.2 }}
-            className="bg-white dark:bg-zinc-900 rounded-2xl shadow-lg p-6 border border-gray-200 dark:border-zinc-700"
-          >
-            <h3 className="font-semibold text-gray-900 dark:text-gray-100 mb-4">Order Timeline</h3>
-            
-            <div className="space-y-4">
-              <div className="flex items-start gap-3">
-                <div className="w-8 h-8 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center flex-shrink-0">
-                  <CheckCircle className="w-4 h-4 text-green-600" />
-                </div>
-                <div>
-                  <p className="font-medium">Order Placed</p>
-                  <p className="text-sm text-gray-500">{formattedDate.short} • {formattedDate.time}</p>
-                </div>
-              </div>
-
-              {normalizedOrder.status === 'processing' && (
-                <div className="flex items-start gap-3">
-                  <div className="w-8 h-8 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center flex-shrink-0">
-                    <Package className="w-4 h-4 text-blue-600" />
-                  </div>
-                  <div>
-                    <p className="font-medium">Order Processing</p>
-                    <p className="text-sm text-gray-500">Preparing your items</p>
-                  </div>
-                </div>
-              )}
-
-              {normalizedOrder.status === 'shipped' && (
-                <div className="flex items-start gap-3">
-                  <div className="w-8 h-8 rounded-full bg-purple-100 dark:bg-purple-900/30 flex items-center justify-center flex-shrink-0">
-                    <Truck className="w-4 h-4 text-purple-600" />
-                  </div>
-                  <div>
-                    <p className="font-medium">Order Shipped</p>
-                    <p className="text-sm text-gray-500">On its way to you</p>
-                  </div>
-                </div>
-              )}
-
-              {normalizedOrder.status === 'delivered' && (
-                <div className="flex items-start gap-3">
-                  <div className="w-8 h-8 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center flex-shrink-0">
-                    <CheckCircle className="w-4 h-4 text-green-600" />
-                  </div>
-                  <div>
-                    <p className="font-medium">Order Delivered</p>
-                    <p className="text-sm text-gray-500">Successfully delivered</p>
-                  </div>
-                </div>
-              )}
-            </div>
-          </motion.div>
-        </div>
+            <Star size={24} fill={rating >= s ? "currentColor" : "none"} />
+          </button>
+        ))}
       </div>
+      <textarea 
+        className="w-full p-4 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-transparent text-sm focus:ring-2 focus:ring-blue-500 outline-none transition-all"
+        placeholder="How was your experience with this order?"
+        rows={3}
+        value={comment}
+        onChange={(e) => setComment(e.target.value)}
+        disabled={loading}
+      />
+      {error && <div className="text-red-500 text-xs font-bold">{error}</div>}
+      <button 
+        onClick={handleSubmit}
+        disabled={rating === 0 || loading}
+        className="px-6 py-2.5 bg-zinc-900 dark:bg-white dark:text-zinc-900 text-white rounded-xl text-sm font-bold hover:opacity-90 disabled:opacity-50 transition-all self-end"
+      >
+        {loading ? "Submitting..." : "Submit Review"}
+      </button>
     </div>
   );
 };
 
-export default OrderDetails;
+/* ---------------- MAIN COMPONENT ---------------- */
+
+/**
+ * The main App component now acts as a wrapper that expects props.
+ * You can pass your real data into this component when rendering it.
+ */
+export default function App({ order, onBack, onTrackOrder, onContactSupport }) {
+  if (!order) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-zinc-50 dark:bg-zinc-950">
+        <div className="text-center animate-pulse">
+          <div className="w-12 h-12 bg-zinc-200 dark:bg-zinc-800 rounded-full mb-4 mx-auto" />
+          <p className="text-zinc-400 font-medium">Loading order details...</p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <OrderDetails 
+      order={order} 
+      onBack={onBack} 
+      onTrackOrder={onTrackOrder} 
+      onContactSupport={onContactSupport} 
+    />
+  );
+}
+
+function OrderDetails({ order, onBack, onTrackOrder, onContactSupport }) {
+    const { user } = useAuth();
+  const [submitted, setSubmitted] = useState(false);
+  const [isVisible, setIsVisible] = useState(false);
+
+  useEffect(() => {
+    setIsVisible(true);
+  }, []);
+
+  const statusKey = (order.status?.toLowerCase() || "pending");
+  const config = STATUS_CONFIG[statusKey] || STATUS_CONFIG.pending;
+  const currentStepIndex = STATUS_STEPS.indexOf(statusKey);
+
+  const subtotal = order.items?.reduce((acc, item) => acc + (item.price * item.quantity), 0) || 0;
+  const total = subtotal + (order.shippingFee || 0) + (order.tax || 0);
+
+  return (
+    <div className={`min-h-screen bg-zinc-50 dark:bg-zinc-950 font-sans selection:bg-blue-100 transition-opacity duration-700 ${isVisible ? 'opacity-100' : 'opacity-0'}`}>
+      <div className="max-w-6xl mx-auto px-4 py-8 lg:py-12">
+        
+        {/* HEADER SECTION */}
+        <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-10">
+          <div className="space-y-4">
+            <button 
+              onClick={onBack}
+              className="group flex items-center gap-2 text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100 transition-all"
+            >
+              <div className="p-2 rounded-xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 shadow-sm group-hover:shadow group-hover:-translate-x-0.5 transition-all">
+                <ChevronLeft size={18} />
+              </div>
+              <span className="text-sm font-semibold tracking-tight">Return to Dashboard</span>
+            </button>
+            <div>
+              <div className="flex items-center gap-3 mb-1">
+                <h1 className="text-3xl lg:text-4xl font-black tracking-tight text-zinc-900 dark:text-zinc-50">
+                  Order <span className="text-blue-600">#{order.id}</span>
+                </h1>
+              </div>
+              <div className="flex items-center gap-4 text-sm text-zinc-500 font-medium">
+                <span className="flex items-center gap-1.5"><Calendar size={14} /> {order.date}</span>
+                <span className="w-1 h-1 rounded-full bg-zinc-300"></span>
+                <span className="flex items-center gap-1.5"><CreditCard size={14} /> {order.paymentMethod || "Payment Card"}</span>
+              </div>
+            </div>
+          </div>
+
+          <div className="flex flex-wrap gap-3">
+            <button className="px-5 py-2.5 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl text-sm font-bold shadow-sm hover:shadow-md transition-all flex items-center gap-2">
+              <Download size={16} /> Invoice
+            </button>
+            <button 
+              onClick={onContactSupport}
+              className="px-5 py-2.5 bg-blue-600 text-white rounded-2xl text-sm font-bold shadow-lg shadow-blue-200 dark:shadow-none hover:bg-blue-700 transition-all flex items-center gap-2"
+            >
+              <HeadphonesIcon size={16} /> Help Center
+            </button>
+          </div>
+        </div>
+
+        <div className="grid lg:grid-cols-12 gap-8">
+          
+          {/* LEFT CONTENT: TRACKING & ITEMS */}
+          <div className="lg:col-span-8 space-y-8">
+            
+            {/* ENHANCED TRACKING CARD */}
+            <div className="bg-white dark:bg-zinc-900 rounded-[2.5rem] border border-zinc-100 dark:border-zinc-800 p-8 lg:p-10 shadow-sm relative overflow-hidden">
+               {/* Background Decorative Element */}
+               <div className={`absolute top-0 right-0 w-32 h-32 ${config.bg} blur-3xl rounded-full -mr-16 -mt-16 opacity-50`} />
+               
+               <div className="flex justify-between items-start mb-12 relative z-10">
+                <div>
+                  <h2 className="text-xl font-black text-zinc-900 dark:text-zinc-50 mb-1">Shipping Status</h2>
+                  <p className="text-sm text-zinc-500 font-medium">{config.description}</p>
+                </div>
+                <div className={`px-4 py-2 rounded-2xl border ${config.bg} ${config.border} ${config.color} flex items-center gap-2`}>
+                   <config.icon size={16} strokeWidth={2.5} />
+                   <span className="text-xs font-black uppercase tracking-widest">{config.label}</span>
+                </div>
+              </div>
+
+              {/* MODERN STEPPER */}
+              {statusKey !== 'cancelled' && (
+                <div className="relative pt-4 pb-8">
+                  <div className="absolute top-9 left-6 right-6 h-1 bg-zinc-100 dark:bg-zinc-800 rounded-full">
+                    <div 
+                      className="h-full bg-blue-600 transition-all duration-1000 ease-out rounded-full shadow-[0_0_10px_rgba(37,99,235,0.4)]" 
+                      style={{ width: `${currentStepIndex >= 0 ? (currentStepIndex / (STATUS_STEPS.length - 1)) * 100 : 0}%` }}
+                    />
+                  </div>
+                  <div className="relative flex justify-between">
+                    {STATUS_STEPS.map((step, idx) => {
+                      const isCompleted = idx <= currentStepIndex;
+                      const isCurrent = idx === currentStepIndex;
+                      const StepIcon = STATUS_CONFIG[step].icon;
+                      
+                      return (
+                        <div key={step} className="flex flex-col items-center group">
+                          <div className={`w-12 h-12 rounded-[1.25rem] flex items-center justify-center transition-all duration-500 border-4 relative z-10 ${
+                            isCompleted 
+                              ? 'bg-blue-600 border-white dark:border-zinc-900 text-white shadow-xl shadow-blue-200 dark:shadow-none' 
+                              : 'bg-white dark:bg-zinc-800 border-zinc-50 dark:border-zinc-900 text-zinc-300'
+                          }`}>
+                            <StepIcon size={20} className={isCurrent ? 'animate-pulse' : ''} />
+                          </div>
+                          <div className="mt-4 text-center">
+                            <span className={`block text-[10px] font-black uppercase tracking-wider mb-0.5 ${isCompleted ? 'text-zinc-900 dark:text-zinc-100' : 'text-zinc-400'}`}>
+                              {step}
+                            </span>
+                            {isCurrent && (
+                              <span className="block text-[9px] text-blue-500 font-bold">Active</span>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* PRODUCT GRID */}
+            <div className="space-y-4">
+              <div className="flex items-center justify-between px-2">
+                <h3 className="text-lg font-black text-zinc-900 dark:text-zinc-100 flex items-center gap-2">
+                  <ShoppingBag className="text-blue-600" size={20} />
+                  Order Items
+                </h3>
+                <span className="text-xs font-bold text-zinc-500 uppercase tracking-widest">{order.items?.length || 0} items</span>
+              </div>
+              
+              <div className="grid gap-4">
+                {order.items?.map((item) => (
+                  <div key={item.productId} className="bg-white dark:bg-zinc-900 p-5 rounded-[2rem] border border-zinc-100 dark:border-zinc-800 flex flex-col sm:flex-row items-center gap-6 group hover:border-blue-200 dark:hover:border-blue-900 transition-all">
+                    <div className="relative flex-shrink-0 w-28 h-28 overflow-hidden rounded-3xl bg-zinc-50 dark:bg-zinc-800 border border-zinc-100 dark:border-zinc-700">
+                      <img src={item.image} alt={item.title} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" />
+                    </div>
+                    <div className="flex-1 text-center sm:text-left min-w-0">
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-2">
+                        <h4 className="font-bold text-lg text-zinc-900 dark:text-zinc-50 truncate group-hover:text-blue-600 transition-colors">
+                          {item.title}
+                        </h4>
+                        <span className="text-lg font-black text-zinc-900 dark:text-zinc-100 whitespace-nowrap">
+                          ETB {item.price.toLocaleString()}
+                        </span>
+                      </div>
+                      <div className="flex flex-wrap justify-center sm:justify-start gap-4">
+                        <div className="flex items-center gap-1.5 text-zinc-500 text-sm font-medium">
+                          <span className="px-2 py-0.5 rounded-lg bg-zinc-100 dark:bg-zinc-800 text-xs font-black uppercase">Qty: {item.quantity}</span>
+                        </div>
+                        <button className="text-xs font-bold text-blue-600 hover:underline flex items-center gap-1">
+                          Buy Again <ArrowRight size={12} />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* REVIEW CARD */}
+            <div className="relative overflow-hidden bg-zinc-900 dark:bg-white rounded-[2.5rem] p-10 text-white dark:text-zinc-900 shadow-2xl shadow-zinc-300 dark:shadow-none">
+              <div className="absolute top-0 right-0 w-64 h-64 bg-blue-500 blur-[100px] -mr-32 -mt-32 opacity-20" />
+              <div className="relative z-10 grid md:grid-cols-2 gap-8 items-center">
+                <div>
+                  <h3 className="text-2xl font-black mb-3">Share the love?</h3>
+                  <p className="text-zinc-400 dark:text-zinc-500 text-sm leading-relaxed mb-6">
+                    How was the delivery and item quality? Your honest feedback helps our community and small business partners grow.
+                  </p>
+                  {!submitted && (
+                    <div className="flex items-center gap-3 text-xs font-bold uppercase tracking-widest text-zinc-500">
+                       <CheckCircle size={14} className="text-blue-500" /> Verified Purchase
+                    </div>
+                  )}
+                </div>
+                <div>
+                  {!submitted ? (
+                    <div className="bg-white/5 dark:bg-zinc-50 backdrop-blur-md rounded-3xl p-6 border border-white/10 dark:border-zinc-200">
+                      <OpenComment 
+                        onSubmit={() => setSubmitted(true)} 
+                        productId={order.items && order.items[0] ? order.items[0].productId : undefined}
+                        userId={user?.id}
+                      />
+                    </div>
+                  ) : (
+                    <div className="flex flex-col items-center justify-center py-8 gap-3 animate-in fade-in zoom-in duration-500">
+                      <div className="w-16 h-16 rounded-full bg-emerald-500/20 flex items-center justify-center text-emerald-500">
+                        <CheckCircle size={32} />
+                      </div>
+                      <span className="font-bold text-xl">Feedback Received!</span>
+                      <p className="text-zinc-400 text-center text-sm">Thank you for helping us improve our service.</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* RIGHT SIDEBAR: SUMMARY & DETAILS */}
+          <div className="lg:col-span-4 space-y-6">
+            
+            {/* ACTION CENTER */}
+            <div className="grid gap-3">
+              <button
+                onClick={onTrackOrder}
+                className="w-full py-4.5 bg-zinc-900 dark:bg-white dark:text-zinc-900 text-white rounded-[1.5rem] font-black hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center justify-center gap-2 shadow-xl shadow-zinc-200 dark:shadow-none"
+              >
+                <Truck size={18} />
+                Live Tracking
+              </button>
+              <button className="w-full py-4.5 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-[1.5rem] font-bold hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-all flex items-center justify-center gap-2">
+                <AlertCircle size={18} />
+                Report Issue
+              </button>
+            </div>
+
+            {/* SUMMARY CARD */}
+            <div className="bg-white dark:bg-zinc-900 rounded-[2.5rem] border border-zinc-100 dark:border-zinc-800 p-8 shadow-sm">
+              <h3 className="font-black uppercase text-xs tracking-[0.2em] text-zinc-400 mb-8">Summary</h3>
+              <div className="space-y-4">
+                <div className="flex justify-between text-sm font-semibold">
+                  <span className="text-zinc-500">Subtotal</span>
+                  <span className="text-zinc-900 dark:text-zinc-100">ETB {subtotal.toLocaleString()}</span>
+                </div>
+                <div className="flex justify-between text-sm font-semibold">
+                  <span className="text-zinc-500">Express Delivery</span>
+                  <span className="text-emerald-500 font-bold uppercase text-[10px] bg-emerald-50 dark:bg-emerald-500/10 px-2 py-0.5 rounded">
+                    {order.shippingFee === 0 ? "Free" : `ETB ${order.shippingFee?.toLocaleString()}`}
+                  </span>
+                </div>
+                <div className="flex justify-between text-sm font-semibold pb-6 border-b border-zinc-50 dark:border-zinc-800">
+                  <span className="text-zinc-500">Service Tax</span>
+                  <span className="text-zinc-900 dark:text-zinc-100">ETB {order.tax?.toLocaleString() || 0}</span>
+                </div>
+                <div className="pt-2">
+                  <div className="flex justify-between items-end">
+                    <span className="font-bold text-zinc-400 text-sm">Total Paid</span>
+                    <span className="text-3xl font-black text-zinc-900 dark:text-zinc-50 tabular-nums">
+                      ETB {total.toLocaleString()}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* INFO CARDS */}
+            <div className="bg-blue-600 rounded-[2.5rem] p-8 text-white">
+               <div className="flex items-center gap-3 mb-6">
+                  <div className="p-2 rounded-xl bg-white/20">
+                    <MapPin size={20} />
+                  </div>
+                  <h3 className="font-black tracking-tight">Delivery Point</h3>
+               </div>
+               {order.shippingAddress && (
+                 <div className="text-sm font-medium text-blue-100 space-y-1 leading-relaxed">
+                   <div className="text-white font-bold text-base mb-2">{order.shippingAddress.fullName}</div>
+                   <div>{order.shippingAddress.street}</div>
+                   <div>{order.shippingAddress.city}, {order.shippingAddress.country}</div>
+                   <div className="pt-4 mt-4 border-t border-white/10 text-white flex items-center justify-between">
+                      <span>{order.shippingAddress.phone}</span>
+                      <button className="p-2 hover:bg-white/10 rounded-lg transition-colors">
+                        <ExternalLink size={16} />
+                      </button>
+                   </div>
+                 </div>
+               )}
+            </div>
+
+            {/* SMALL HELPER CARD */}
+            <div className="bg-white dark:bg-zinc-900 rounded-[2rem] border border-zinc-100 dark:border-zinc-800 p-6 flex items-center gap-4">
+               <div className="w-10 h-10 rounded-full bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center flex-shrink-0">
+                  <Clock size={18} className="text-zinc-400" />
+               </div>
+               <div>
+                  <p className="text-[10px] font-black uppercase tracking-widest text-zinc-400">Estimated Arrival</p>
+                  <p className="text-sm font-bold text-zinc-900 dark:text-zinc-50">
+                    {order.estimatedArrival || "Updating..."}
+                  </p>
+               </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
