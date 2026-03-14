@@ -83,7 +83,7 @@ function SheetContent({
         {...props}
       >
         {!hasTitle && (
-          <span style={{ position: 'absolute', width: 1, height: 1, margin: -1, padding: 0, overflow: 'hidden', clip: 'rect(0,0,0,0)', border: 0 }}>
+          <span style={{ position: 'absolute', width: 1, height: 1, margin: -1, padding: 0, overflow: 'hidden', clip: 'rect(0,0,0,0)', border: 0 }} role="heading" aria-level={1}>
             Menu
           </span>
         )}
