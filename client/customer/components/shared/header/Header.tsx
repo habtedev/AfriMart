@@ -33,6 +33,8 @@ import {
 } from "lucide-react";
 
 import { translations, Language } from "@/i18n";
+// import Searchgni from "./Searchgni"; // Unused, can be removed or integrated if needed
+import { fetchProductsByName, Product } from "@/lib/fetchProductsByName";
 import { useLanguage } from "@/context/LanguageContext";
 import { useCart } from "@/context/CartContext";
 import { useAuth } from "@/context/AuthContext";
@@ -42,6 +44,32 @@ import { useAuth } from "@/context/AuthContext";
 const container = "mx-auto max-w-7xl px-4 sm:px-6 lg:px-8";
 
 export default function Header() {
+
+    const [searchResults, setSearchResults] = React.useState<Product[]>([]);
+    const [searching, setSearching] = React.useState(false);
+    const [searchQuery, setSearchQuery] = React.useState("");
+
+    // Real-world search handler
+    const handleSearchInput = async (e: React.ChangeEvent<HTMLInputElement>) => {
+      const query = e.target.value;
+      setSearchQuery(query);
+      if (!query.trim()) {
+        setSearchResults([]);
+        setSearching(false);
+        return;
+      }
+      setSearching(true);
+      try {
+        const results = await fetchProductsByName(query);
+        setSearchResults(results);
+      } catch (err) {
+        setSearchResults([]);
+      }
+      setSearching(false);
+    };
+
+    // Real-world search handler
+    // Remove unused handleSearch
   const router = useRouter();
   const pathname = usePathname();
 
@@ -275,18 +303,49 @@ export default function Header() {
         {/* Search */}
 
         <div className="hidden lg:flex flex-1 max-w-xl mx-auto">
-
-          <div className="relative w-full">
-
+          <form
+            className="relative w-full"
+            onSubmit={e => {
+              e.preventDefault();
+              if (!searchQuery.trim()) return;
+              router.push(`/search?q=${encodeURIComponent(searchQuery)}`);
+            }}
+            autoComplete="off"
+          >
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-
             <Input
               placeholder={t.search}
               className="pl-10 rounded-full h-10 bg-secondary/40 border-none"
+              value={searchQuery}
+              onChange={handleSearchInput}
             />
-
-          </div>
-
+            {/* Search Results Dropdown */}
+            {searching && (
+              <div className="absolute left-0 top-12 w-full bg-background border shadow rounded p-4 z-50">
+                <span>Searching...</span>
+              </div>
+            )}
+            {!searching && searchResults.length > 0 && (
+              <div className="absolute left-0 top-12 w-full bg-background border shadow rounded p-4 z-50">
+                <ul>
+                  {searchResults.map((item) => (
+                    <li
+                      key={item._id}
+                      onClick={() => {
+                        router.push(`/products/${item._id}`);
+                        setSearchResults([]);
+                      }}
+                      className="py-1 px-2 hover:bg-accent rounded cursor-pointer"
+                    >
+                      <span className="font-medium">{item.title}</span>
+                      <span className="ml-2 text-xs text-muted-foreground">[{item.category}]</span>
+                    </li>
+                  ))}
+                </ul>
+                <div className="mt-2 text-xs text-muted-foreground">Powered by simple search. For production, use <a href="https://fusejs.io/" target="_blank" className="underline">Fuse.js</a> or Algolia.</div>
+              </div>
+            )}
+          </form>
         </div>
 
         {/* Right Side */}
@@ -435,18 +494,49 @@ export default function Header() {
       {/* Mobile Search */}
 
       <div className="lg:hidden px-4 pb-3">
-
-        <div className="relative">
-
+        <form
+          className="relative"
+          onSubmit={e => {
+            e.preventDefault();
+            if (!searchQuery.trim()) return;
+            router.push(`/search?q=${encodeURIComponent(searchQuery)}`);
+          }}
+          autoComplete="off"
+        >
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-
           <Input
             placeholder={t.search}
             className="pl-10 rounded-lg bg-secondary/40 border-none"
+            value={searchQuery}
+            onChange={handleSearchInput}
           />
-
-        </div>
-
+          {/* Search Results Dropdown */}
+          {searching && (
+            <div className="absolute left-0 top-12 w-full bg-background border shadow rounded p-4 z-50">
+              <span>Searching...</span>
+            </div>
+          )}
+          {!searching && searchResults.length > 0 && (
+            <div className="absolute left-0 top-12 w-full bg-background border shadow rounded p-4 z-50">
+              <ul>
+                {searchResults.map((item) => (
+                  <li
+                    key={item._id}
+                    onClick={() => {
+                      router.push(`/products/${item._id}`);
+                      setSearchResults([]);
+                    }}
+                    className="py-1 px-2 hover:bg-accent rounded cursor-pointer"
+                  >
+                    <span className="font-medium">{item.title}</span>
+                    <span className="ml-2 text-xs text-muted-foreground">[{item.category}]</span>
+                  </li>
+                ))}
+              </ul>
+              <div className="mt-2 text-xs text-muted-foreground">Powered by simple search. For production, use <a href="https://fusejs.io/" target="_blank" className="underline">Fuse.js</a> or Algolia.</div>
+            </div>
+          )}
+        </form>
       </div>
 
     </header>
