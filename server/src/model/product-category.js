@@ -6,7 +6,7 @@ const productSchema = new mongoose.Schema(
     image: { type: String },
     category: {
       type: String,
-      enum: ['handcraft', 'home-goods', 'electronics', 'best-seller', 'clothing',],
+      enum: ['handcraft', 'home-goods', 'electronics', 'clothing',],
       required: true,
     },
     color: { type: String, default: "#ffffff" }, // HEX or CSS class

@@ -1,6 +1,5 @@
 "use client";
 
-
 import React from "react";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
@@ -8,6 +7,7 @@ import ProductCard from "./ProductCard";
 import { useCart } from "@/context/CartContext";
 import { ChevronRight } from "lucide-react";
 import useProducts from "@/lib/useProducts";
+import useBestSellers from "@/lib/useBestSellers";
 
 interface Product {
   _id: string;
@@ -20,8 +20,6 @@ interface Product {
   isTodayDeal?: boolean;
   stock: number;
 }
-
-
 
 /* ---------------------------------- */
 /* Section Wrapper */
@@ -40,27 +38,19 @@ function ProductSection({
   if (!products.length) return null;
 
   return (
-    <section className="mt-14">
+    <section className="mt-12">
       {/* Header */}
-      <div className="mb-5 flex items-center justify-between">
-        <h2 className="text-xl font-extrabold tracking-tight bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+      <div className="mb-5 flex items-center justify-between px-4 sm:px-6 md:px-0">
+        <h2 className="text-xl sm:text-2xl font-extrabold tracking-tight bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
           {title}
         </h2>
 
         <button
-          aria-label="View all products in this category"
-          className="
-            flex items-center gap-1
-            text-sm font-medium
-            text-blue-600
-            cursor-pointer
-            hover:gap-2
-            hover:text-blue-700
-            transition-all
-          "
+          aria-label={`View all products in ${title}`}
+          className="flex items-center gap-1 text-sm sm:text-base font-medium text-blue-600 hover:text-blue-700 hover:gap-2 transition-all"
         >
           View all
-          <ChevronRight className="h-4 w-4" />
+          <ChevronRight className="h-4 w-4 sm:h-5 sm:w-5" />
         </button>
       </div>
 
@@ -71,15 +61,9 @@ function ProductSection({
         viewport={{ once: true }}
         transition={{ duration: 0.45, ease: "easeOut" }}
         className="
-          relative
-          flex gap-5
-          overflow-x-auto
-          pb-5
-          scroll-smooth
-          snap-x snap-mandatory
-          [&::-webkit-scrollbar]:h-2
-          [&::-webkit-scrollbar-thumb]:rounded-full
-          [&::-webkit-scrollbar-thumb]:bg-zinc-300
+          relative flex gap-4 sm:gap-5 overflow-x-auto pb-5 scroll-smooth snap-x snap-mandatory
+          [&::-webkit-scrollbar]:h-2 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-zinc-300
+          px-4 sm:px-0
         "
       >
         {products.map((product) => (
@@ -87,7 +71,7 @@ function ProductSection({
             key={product._id}
             whileHover={{ y: -6 }}
             transition={{ type: "spring", stiffness: 300 }}
-            className="snap-start cursor-pointer"
+            className="snap-start cursor-pointer flex-shrink-0 w-[200px] sm:w-[220px] md:w-[240px]"
           >
             <ProductCard
               {...product}
@@ -104,47 +88,41 @@ function ProductSection({
 /* ---------------------------------- */
 /* Main Component */
 /* ---------------------------------- */
-
-
-export default function ProductCardByCategory() {
+export default function ProductSections() {
   const { products, loading, error } = useProducts();
+  const { products: bestSellers, loading: bestSellersLoading, error: bestSellersError } = useBestSellers();
   const router = useRouter();
   const { addToCart } = useCart();
 
   const handleAddToCart = (id: string) => {
-    const product = products.find((p) => p._id === id);
-    if (product) {
-      addToCart({
-        id: product._id,
-        _id: product._id,
-        title: product.title,
-        image: product.image,
-        price: product.offPrice || product.price || 0,
-        stock: typeof product.stock === 'number' ? product.stock : 1,
-      });
-    }
+    const product = products.find((p) => p._id === id) || bestSellers.find((p) => p._id === id);
+    if (!product) return;
+
+    addToCart({
+      id: product._id,
+      _id: product._id,
+      title: product.title,
+      image: product.image,
+      price: product.offPrice ?? product.price ?? 0,
+      stock: product.stock,
+    });
   };
 
   const handleViewDetails = (id: string) => {
     router.push(`/products/${id}`);
   };
 
-  if (loading) {
+  if (loading || bestSellersLoading) {
     return (
-      <div className="space-y-12">
+      <div className="space-y-12 px-4 sm:px-6 md:px-0">
         {[1, 2, 3].map((i) => (
           <div key={i}>
             <div className="h-6 w-48 rounded-lg bg-zinc-200 mb-5 animate-pulse" />
-            <div className="flex gap-5">
+            <div className="flex gap-4 sm:gap-5 overflow-x-auto">
               {[1, 2, 3, 4].map((j) => (
                 <div
                   key={j}
-                  className="
-                    h-[300px] w-[220px]
-                    rounded-2xl
-                    bg-zinc-200
-                    animate-pulse
-                  "
+                  className="h-[300px] w-[200px] sm:w-[220px] md:w-[240px] rounded-2xl bg-zinc-200 animate-pulse flex-shrink-0"
                 />
               ))}
             </div>
@@ -154,32 +132,23 @@ export default function ProductCardByCategory() {
     );
   }
 
-  if (error) {
+  if (error || bestSellersError) {
     return (
-      <div
-        className="mx-auto mt-12 max-w-md rounded-xl bg-white shadow-lg border border-red-200 p-6 flex flex-col items-center text-center"
-        style={{ color: '#b91c1c' }}
-      >
-        <svg width="48" height="48" fill="none" viewBox="0 0 24 24" stroke="#b91c1c" className="mb-3">
+      <div className="mx-auto mt-12 max-w-md rounded-xl bg-white shadow-lg border border-red-200 p-6 flex flex-col items-center text-center text-red-700">
+        <svg width="48" height="48" fill="none" viewBox="0 0 24 24" stroke="currentColor" className="mb-3">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
         </svg>
         <div className="font-bold text-lg mb-2">Sorry, we couldn’t load products.</div>
-        <div className="text-sm text-red-700 mb-3">Please refresh or try again later.</div>
-        {/* Developer info:
-        Error: {error}
-        Please ensure the backend is running, the API URL is correct in your .env, and the API endpoint is accessible.
-        Try opening {process.env.NEXT_PUBLIC_API_URL}/api/product-cards directly in your browser.
-        Check the browser console for more details.
-        */}
+        <div className="text-sm mb-3">Please refresh or try again later.</div>
       </div>
     );
   }
 
   return (
-    <div>
+    <div className="space-y-12">
       <ProductSection
         title="🔥 Best Sellers"
-        products={products.filter((p) => p.isBestSeller)}
+        products={bestSellers}
         onAddToCart={handleAddToCart}
         onViewDetails={handleViewDetails}
       />

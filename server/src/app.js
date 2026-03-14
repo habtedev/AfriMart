@@ -125,6 +125,10 @@ app.use('/api/order-cache', orderCacheRoutes);
 const productSalesRoutes = require('./router/productSales.routes');
 app.use('/api/product-sales', productSalesRoutes);
 
+// Best sellers by sales API
+const bestSellerRoutes = require('./router/bestSeller.routes');
+app.use('/api/best-sellers', bestSellerRoutes);
+
 // Chapa payment API
 app.use('/api/chapa', chapaRoutes);
 
