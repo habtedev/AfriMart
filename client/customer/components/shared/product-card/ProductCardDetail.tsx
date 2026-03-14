@@ -2,8 +2,20 @@
 
 import React, { useState, useEffect, useMemo, useCallback } from "react";
 // Fetch reviews for a product
+
+interface ProductReview {
+  _id: string;
+  userId?: {
+    name?: string;
+    photo?: string;
+  };
+  rating?: number;
+  comment?: string;
+  createdAt?: string;
+}
+
 function useProductReviews(productId: string) {
-  const [reviews, setReviews] = useState([]);
+  const [reviews, setReviews] = useState<ProductReview[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
@@ -26,9 +38,10 @@ function useProductReviews(productId: string) {
   return { reviews, loading, error };
 }
 import Image from "next/image";
-import { ShoppingCart, Star, CheckCircle, AlertCircle, ChevronRight, ChevronLeft } from "lucide-react";
+import { ShoppingCart, Star, CheckCircle, AlertCircle, ChevronRight, ChevronLeft, Users, TrendingUp } from "lucide-react";
 import { useCart } from "@/context/CartContext";
 import useProductDetail from "@/lib/useProductDetail";
+import useProductSales from "@/lib/useProductSales";
 import CommentCard from "./CommentCard";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { User } from "lucide-react";
@@ -78,6 +91,7 @@ const buildVariantStockMap = (variants: ProductVariant[] | undefined) => {
 };
 
 export default function ProductCardDetail({ productId }: { productId: string }) {
+  const { sales, sellerCount, loading: salesLoading, error: salesError } = useProductSales(productId);
   const { reviews, loading: reviewsLoading, error: reviewsError } = useProductReviews(productId);
   const { addToCart } = useCart();
   const { product, loading, error } = useProductDetail(productId) as { 
@@ -255,6 +269,32 @@ export default function ProductCardDetail({ productId }: { productId: string }) 
                 </div>
                 <div className="w-1 h-1 rounded-full bg-zinc-300" />
                 <span className="text-sm text-zinc-500">{product.reviewCount} Reviews</span>
+                <div className="w-1 h-1 rounded-full bg-zinc-300" />
+                {/* Sales and Unique Buyers - Modern UI */}
+                {salesLoading ? (
+                  <span className="text-xs text-zinc-400 animate-pulse">Loading sales...</span>
+                ) : salesError ? (
+                  <span className="text-xs text-red-500">Sales unavailable</span>
+                ) : (
+                  <div className="flex flex-wrap gap-2 items-center sm:flex-nowrap sm:gap-2 w-full max-w-xs">
+                    <span
+                      className="group flex items-center gap-1 text-xs font-semibold text-blue-800 dark:text-blue-200 bg-blue-100 dark:bg-blue-900/40 px-3 py-1 rounded-xl shadow-sm border border-blue-200 dark:border-blue-800 hover:bg-blue-200/80 transition-all cursor-default relative w-full sm:w-auto justify-center"
+                      title="Total number of times this product has been purchased."
+                    >
+                      <TrendingUp size={15} className="text-blue-500 mr-1" />
+                      <span className="font-bold">{sales}</span>
+                      <span className="ml-1">Sold</span>
+                    </span>
+                    <span
+                      className="group flex items-center gap-1 text-xs font-semibold text-emerald-800 dark:text-emerald-200 bg-emerald-100 dark:bg-emerald-900/40 px-3 py-1 rounded-xl shadow-sm border border-emerald-200 dark:border-emerald-800 hover:bg-emerald-200/80 transition-all cursor-default relative w-full sm:w-auto justify-center"
+                      title="Number of different customers who bought this product."
+                    >
+                      <Users size={15} className="text-emerald-500 mr-1" />
+                      <span className="font-bold">{sellerCount}</span>
+                      <span className="ml-1">Unique buyers</span>
+                    </span>
+                  </div>
+                )}
               </div>
             </div>
 
@@ -390,7 +430,7 @@ export default function ProductCardDetail({ productId }: { productId: string }) 
               )}
               {reviews.map((review) => (
                 <div key={review._id} className="flex gap-3 items-center">
-                  <div className="flex items-center gap-2 min-w-[120px]">
+                  <div className="flex items-center gap-2 min-w-30">
                     {reviewsLoading ? (
                       <Skeleton className="h-10 w-10 rounded-full" />
                     ) : (
@@ -409,8 +449,10 @@ export default function ProductCardDetail({ productId }: { productId: string }) 
                   </div>
                   <div className="flex-1">
                     <CommentCard
-                      rating={review.rating}
-                      comment={review.comment}
+                      userName={review.userId?.name || "Anonymous"}
+                      userImage={review.userId?.photo || ""}
+                      rating={review.rating ?? 0}
+                      comment={review.comment ?? ""}
                       date={review.createdAt ? new Date(review.createdAt).toLocaleDateString() : ""}
                     />
                   </div>
@@ -423,7 +465,7 @@ export default function ProductCardDetail({ productId }: { productId: string }) 
 
       {/* Toast Notification */}
       {showToast && (
-        <div className="fixed bottom-10 left-1/2 -translate-x-1/2 z-[100] animate-in fade-in slide-in-from-bottom-4 duration-300">
+        <div className="fixed bottom-10 left-1/2 -translate-x-1/2 z-100 animate-in fade-in slide-in-from-bottom-4 duration-300">
           <div className="bg-emerald-600 text-white px-8 py-4 rounded-2xl shadow-2xl flex items-center gap-3 font-bold">
             <CheckCircle size={20} />
             Successfully added to cart!

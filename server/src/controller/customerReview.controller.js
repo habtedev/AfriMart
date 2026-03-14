@@ -1,5 +1,5 @@
 const CustomerReview = require('../model/customerReview.model');
-const cloudinary = require('../src/utils/cloudinary');
+const cloudinary = require('../utils/cloudinary');
 
 // Create a new review
 exports.createReview = async (req, res) => {
